@@ -674,7 +674,17 @@
 
             modal.style.display = 'flex';
 
-            document.getElementById('start-adventure-btn').onclick = () => {
+            document.getElementById('start-adventure-btn').onclick = async () => {
+                // Запрос прав на акселерометр (обязательно для iOS)
+                if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+                    try {
+                        const permission = await DeviceMotionEvent.requestPermission();
+                        console.log('Motion permission:', permission);
+                    } catch (err) {
+                        console.error('Motion permission error:', err);
+                    }
+                }
+
                 modal.style.opacity = '0';
                 setTimeout(() => {
                     modal.style.display = 'none';
@@ -898,6 +908,47 @@
                     }
                 }
                 lastMouseX = mouseX; lastMouseY = mouseY;
+            }
+
+            // --- ДЕТЕКЦИЯ ТРЯСКИ ---
+            let lastX = 0, lastY = 0, lastZ = 0;
+            let shakeThreshold = 15.0; // Порог чувствительности
+
+            function handleMotion(event) {
+                if (!lizardEngineStarted || appState !== 'roam') return;
+                
+                const acc = event.accelerationIncludingGravity;
+                if (!acc) return;
+
+                let deltaX = Math.abs(acc.x - lastX);
+                let deltaY = Math.abs(acc.y - lastY);
+                let deltaZ = Math.abs(acc.z - lastZ);
+
+                if ((deltaX > shakeThreshold && deltaY > shakeThreshold) || 
+                    (deltaX > shakeThreshold && deltaZ > shakeThreshold) || 
+                    (deltaY > shakeThreshold && deltaZ > shakeThreshold)) {
+                    
+                    // ТРЯСКА ОБНАРУЖЕНА!
+                    if (startleTimer <= 0) {
+                        startleTimer = 60; // Испуг
+                        
+                        // Рывок в центр экрана
+                        wanderTarget.x = window.innerWidth / 2;
+                        wanderTarget.y = window.innerHeight / 2;
+                        
+                        moveState = 'darting';
+                        targetSpeed = 8; // Высокая скорость
+                        interestTimer = 0;
+                    }
+                }
+
+                lastX = acc.x;
+                lastY = acc.y;
+                lastZ = acc.z;
+            }
+
+            if (window.DeviceMotionEvent) {
+                window.addEventListener('devicemotion', handleMotion);
             }
 
         // --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
