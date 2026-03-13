@@ -22,6 +22,8 @@
             width: 100%;
             height: 100%;
             cursor: crosshair;
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: crisp-edges;
         }
         
         #top-ui {
@@ -522,11 +524,11 @@
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
 
-            let mouseX = canvas.width/2, mouseY = canvas.height/2;
+            let mouseX = window.innerWidth/2, mouseY = window.innerHeight/2;
             let lastMouseX = mouseX, lastMouseY = mouseY;
 
-            let target = { x: Math.floor(canvas.width / 2), y: Math.floor(canvas.height / 2) };
-            let wanderTarget = { x: canvas.width / 2, y: canvas.height / 3 };
+            let target = { x: Math.floor(window.innerWidth / 2), y: Math.floor(window.innerHeight / 2) };
+            let wanderTarget = { x: window.innerWidth / 2, y: window.innerHeight / 3 };
             let points = [];
             let angles = []; 
             let segR = []; // Объявляем здесь, чтобы helper-функции видели актуальную анатомию
@@ -785,14 +787,6 @@
             ctx.lineJoin = 'round';
             ctx.lineCap = 'round';
             ctx.stroke();
-
-            // ДОПОЛНИТЕЛЬНОЕ СКРУГЛЕНИЕ ДЛЯ МОБИЛОК (чтобы не было острых углов при градиентах)
-            ctx.fillStyle = grd;
-            [ [sx, sy], [kneeX, kneeY], [px, py] ].forEach(([cx, cy]) => {
-                ctx.beginPath();
-                ctx.arc(cx, cy, 10, 0, Math.PI * 2); 
-                ctx.fill();
-            });
 
             leg.footAngle = Math.atan2(py - kneeY, px - kneeX);
         }
@@ -1647,7 +1641,7 @@
             });
 
             // --- РЕНДЕР ---
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
             
             // Обновление еды и расчет слоев
             for (let i = foods.length - 1; i >= 0; i--) {
@@ -1711,9 +1705,9 @@
             // Жуки теперь всегда рендерятся поверх всех слоев (на переднем стекле)
 
             ctx.save();
-            ctx.translate(canvas.width/2, canvas.height/2); 
+            ctx.translate(window.innerWidth/2, window.innerHeight/2); 
             ctx.scale(visualScale, visualScale); 
-            ctx.translate(-canvas.width/2, -canvas.height/2);
+            ctx.translate(-window.innerWidth/2, -window.innerHeight/2);
             
             ctx.shadowColor = 'rgba(0, 0, 0, 0.12)'; 
             ctx.shadowBlur = 15; 
@@ -1912,9 +1906,16 @@
 
         function resize() {
             const dpr = window.devicePixelRatio || 1;
+            // Устанавливаем физический размер канваса (количество пикселей)
             canvas.width = window.innerWidth * dpr;
             canvas.height = window.innerHeight * dpr;
-            ctx.setTransform(dpr, 0, 0, dpr, 0, 0); // Масштабируем контекст, чтобы логические координаты (x, y) работали как раньше
+            
+            // Устанавливаем логический размер канваса (размер на странице)
+            canvas.style.width = window.innerWidth + 'px';
+            canvas.style.height = window.innerHeight + 'px';
+            
+            // Масштабируем контекст, чтобы логические координаты (x, y) работали как раньше
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0); 
             
             visualScale = 1; 
             if (lizardEngineStarted) updateLizardDimensions();
