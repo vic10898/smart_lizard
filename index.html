@@ -1,0 +1,1922 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Умный Ящерок - Тамагочи</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #f8fafc;
+            overflow: hidden;
+            touch-action: none;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            cursor: crosshair;
+        }
+        
+        #top-ui {
+            position: absolute;
+            top: 40px;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            pointer-events: none;
+            color: #94a3b8;
+            opacity: 1;
+            transition: opacity 0.5s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        h1 { margin: 0; font-size: 24px; color: #334155; text-align: center; }
+        p { margin: 8px 0 0 0; font-size: 15px; text-align: center; }
+
+        /* Единственная кнопка действий */
+        #action-btn {
+            position: fixed;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100;
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.5);
+            padding: 14px 24px;
+            border-radius: 30px;
+            font-size: 18px;
+            font-weight: 700;
+            color: #0f766e;
+            cursor: pointer;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        #action-btn:hover {
+            transform: translate(-50%, -3px) scale(1.05);
+            background: rgba(255, 255, 255, 1);
+            box-shadow: 0 12px 25px rgba(0,0,0,0.12);
+        }
+        #action-btn:active {
+            transform: translate(-50%, 1px) scale(0.95);
+        }
+        #action-btn.feeding {
+            background: #fef2f2;
+            color: #e11d48;
+            border-color: #fda4af;
+        }
+
+        /* ТЕМПОВАЯ КНОПКА СБРОСА */
+        #reset-btn {
+            position: fixed;
+            bottom: 15px;
+            right: 15px;
+            padding: 6px 12px;
+            background: transparent;
+            color: #94a3b8;
+            border: 1px solid rgba(148, 163, 184, 0.3);
+            border-radius: 6px;
+            font-size: 10px;
+            font-weight: normal;
+            cursor: pointer;
+            z-index: 10000;
+            transition: all 0.2s;
+            opacity: 0.4;
+        }
+        #reset-btn:hover {
+            opacity: 1;
+            background: rgba(148, 163, 184, 0.1);
+        }
+        #reset-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* МОДАЛЬНОЕ ОКНО ПОДТВЕРЖДЕНИЯ */
+        #reset-modal {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(10px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 20000;
+        }
+        .modal-content {
+            background: #fff;
+            padding: 30px;
+            border-radius: 20px;
+            max-width: 320px;
+            text-align: center;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .modal-content h3 { margin: 0 0 10px; color: #1e293b; }
+        .modal-content p { color: #64748b; font-size: 14px; margin-bottom: 25px; }
+        .modal-btns { display: flex; gap: 10px; justify-content: center; }
+        .m-btn {
+            padding: 12px 20px;
+            border-radius: 10px;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        .m-btn.cancel { background: #f1f5f9; color: #475569; }
+        .m-btn.confirm { background: #ef4444; color: #fff; }
+        .m-btn:hover { opacity: 0.9; transform: scale(1.05); }
+
+        #cursor-effect {
+            position: absolute;
+            width: 40px; height: 40px;
+            border: 3px solid rgba(255, 90, 0, 0.8);
+            border-radius: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            pointer-events: none;
+            opacity: 0;
+            transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+        }
+
+        /* Адаптация для мобильных устройств */
+        @media (max-width: 600px) {
+            #action-btn {
+                bottom: 30px;
+                padding: 18px 32px;
+                font-size: 20px;
+                border-radius: 40px;
+                width: 80%;
+                max-width: 300px;
+                justify-content: center;
+            }
+            #action-btn:hover {
+                transform: translateX(-50%) translateY(-2px);
+            }
+            #action-btn:active {
+                transform: translateX(-50%) scale(0.95);
+            }
+            #top-ui {
+                top: 20px;
+            }
+            h1 { font-size: 20px; }
+            p { font-size: 14px; }
+        }
+
+        /* --- СТИЛИ ДЛЯ СТАДИИ ЯЙЦА --- */
+        #egg-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            display: none; /* Скрыто по умолчанию */
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: radial-gradient(circle at center, #f8fafc, #e2e8f0);
+            z-index: 200;
+        }
+        #egg-container {
+            position: relative;
+            width: 200px; height: 260px;
+            cursor: pointer;
+            transition: transform 0.1s ease;
+        }
+        #egg-container:active {
+            transform: scale(0.95);
+        }
+        #egg-visual {
+            width: 100%; height: 100%;
+            background: #fff;
+            border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+            box-shadow: 
+                inset -20px -20px 50px rgba(0,0,0,0.1),
+                0 20px 40px rgba(0,0,0,0.1);
+            position: relative;
+            overflow: hidden;
+            border: 2px solid #f1f5f9;
+        }
+        .crack {
+            position: absolute;
+            background: #cbd5e1;
+            width: 2px;
+            transform-origin: top center;
+        }
+        #egg-hint {
+            margin-top: 40px;
+            font-size: 18px;
+            color: #64748b;
+            font-weight: 500;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 0.5; }
+            50% { opacity: 1; }
+            100% { opacity: 0.5; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="top-ui" style="display: none;">
+        <h1 id="title-text">Свободный режим</h1>
+        <p id="desc-text">Стучи по стеклу, пугай или гладь пузико</p>
+    </div>
+    
+    <button id="action-btn" style="display: none;">🐛 Кормить</button>
+
+    <div id="egg-overlay">
+        <div id="egg-container">
+            <div id="egg-visual"></div>
+        </div>
+        <div id="egg-hint">Постучи по скорлупе...</div>
+    </div>
+
+    <!-- Кнопка сброса для тестов -->
+    <button id="reset-btn">Сбросить прогресс</button>
+
+    <!-- Модалка сброса -->
+    <div id="reset-modal">
+        <div class="modal-content">
+            <h3>Сбросить всё?</h3>
+            <p>Вы потеряете текущую ящерицу и весь накопленный прогресс.</p>
+            <div class="modal-btns">
+                <button class="m-btn cancel" id="res-cancel">Отмена</button>
+                <button class="m-btn confirm" id="res-confirm">Да, сбросить</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="cursor-effect"></div>
+    <canvas id="canvas"></canvas>
+
+    <script>
+        // Глобальные хелперы (нужны до старта движка)
+        function showClickEffect(x, y) {
+            const cursorEffect = document.getElementById('cursor-effect');
+            if (!cursorEffect) return;
+            cursorEffect.style.transition = 'none';
+            cursorEffect.style.transform = `translate(-50%, -50%) scale(0)`;
+            cursorEffect.style.opacity = '1';
+            cursorEffect.style.left = x + 'px';
+            cursorEffect.style.top = y + 'px';
+            setTimeout(() => {
+                cursorEffect.style.transition = 'transform 0.4s ease-out, opacity 0.4s ease-out';
+                cursorEffect.style.transform = `translate(-50%, -50%) scale(2)`;
+                cursorEffect.style.opacity = '0';
+            }, 10);
+        }
+        // --- КОНСТАНТЫ И НАСТРОЙКИ ---
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const uiTop = document.getElementById('top-ui');
+        const titleText = document.getElementById('title-text');
+        const descText = document.getElementById('desc-text');
+        const actionBtn = document.getElementById('action-btn');
+        const cursorEffect = document.getElementById('cursor-effect');
+        const eggOverlay = document.getElementById('egg-overlay');
+        const eggContainer = document.getElementById('egg-container');
+        const eggVisual = document.getElementById('egg-visual');
+        const SAVE_KEY = 'smart_lizard_save';
+        const EGG_HATCH_LIMIT = 15; // Сколько кликов нужно для вылупления
+
+        let gameState = null;
+        let lizardEngineStarted = false;
+
+        const resetBtn = document.getElementById('reset-btn');
+        const resetModal = document.getElementById('reset-modal');
+        const resCancel = document.getElementById('res-cancel');
+        const resConfirm = document.getElementById('res-confirm');
+
+        if (resetBtn && resetModal) {
+            // Предотвращаем любые клики сквозь кнопку в движок
+            resetBtn.onpointerdown = (e) => e.stopPropagation();
+            resetBtn.onmousedown = (e) => e.stopPropagation();
+
+            resetBtn.onclick = (e) => {
+                e.preventDefault(); e.stopPropagation();
+                resetModal.style.display = 'flex';
+            };
+
+            // Блокируем проброс событий из модалки дальше в движок
+            resetModal.onpointerdown = (e) => e.stopPropagation();
+            resetModal.onmousedown = (e) => e.stopPropagation();
+            resetModal.onclick = (e) => e.stopPropagation();
+
+            resCancel.onclick = () => {
+                resetModal.style.display = 'none';
+            };
+
+            resConfirm.onclick = () => {
+                localStorage.removeItem(SAVE_KEY);
+                localStorage.removeItem('lizard_uid');
+                location.href = location.pathname + '?reset=' + Date.now();
+            };
+        }
+
+        // --- ЛОГИКА СОХРАНЕНИЯ И ДНК ---
+
+        function generateDNA() {
+            const tribes = [
+                { name: 'FOREST', h: [80, 150], s: [50, 75], l: [30, 45] },
+                { name: 'OCEANIC', h: [180, 240], s: [70, 90], l: [35, 50] },
+                { name: 'MYSTIC', h: [260, 310], s: [65, 85], l: [40, 55] },
+                { name: 'VOLCANIC', h: [0, 45], s: [75, 95], l: [45, 60] }
+            ];
+            const tribe = tribes[Math.floor(Math.random() * tribes.length)];
+            
+            return {
+                tribe: tribe.name,
+                h: tribe.h[0] + Math.random() * (tribe.h[1] - tribe.h[0]),
+                s: tribe.s[0] + Math.random() * (tribe.s[1] - tribe.s[0]),
+                l: tribe.l[0] + Math.random() * (tribe.l[1] - tribe.l[0]),
+                accentType: Math.random() > 0.5 ? 'complementary' : 'analogous',
+                bodyFat: 0.8 + Math.random() * 0.4,
+                tailLength: 0.8 + Math.random() * 0.4,
+                eyeSpacing: 25 + Math.random() * 10
+            };
+        }
+
+        function saveGame() {
+            if (!gameState) return;
+            gameState.lastPlayed = Date.now();
+            localStorage.setItem(SAVE_KEY, JSON.stringify(gameState));
+        }
+
+        function calculateOfflineProgress(state) {
+            if (state.stage === 'EGG') return;
+            const now = Date.now();
+            const diffInHours = (now - state.lastPlayed) / (1000 * 60 * 60);
+            const hungerLoss = Math.floor(diffInHours * 5); // 5 единиц голода в час
+            state.hunger = Math.max(0, state.hunger - hungerLoss);
+        }
+
+        async function bootGame() {
+            // 3.1: Получение UID
+            let uid = localStorage.getItem('lizard_uid');
+            if (!uid) {
+                uid = 'user_' + Math.random().toString(36).substr(2, 9);
+                localStorage.setItem('lizard_uid', uid);
+            }
+
+            // 3.2: Загрузка сохранения
+            const savedData = localStorage.getItem(SAVE_KEY);
+            if (!savedData) {
+                // Первый запуск
+                gameState = {
+                    uid: uid,
+                    dna: generateDNA(),
+                    stage: 'EGG',
+                    eggClicks: 0,
+                    hunger: 100,
+                    lastPlayed: Date.now()
+                };
+                saveGame();
+            } else {
+                gameState = JSON.parse(savedData);
+                calculateOfflineProgress(gameState);
+            }
+
+            // 3.4: Маршрутизация
+            if (gameState.stage === 'EGG') {
+                showEggStage();
+            } else {
+                initLizardEngine(gameState);
+            }
+        }
+
+        function showEggStage() {
+            eggOverlay.style.display = 'flex';
+            uiTop.style.display = 'none';
+            actionBtn.style.display = 'none';
+
+            // Навешиваем клики на яйцо
+            eggContainer.onclick = (e) => {
+                gameState.eggClicks++;
+                showClickEffect(e.clientX, e.clientY);
+                
+                // Тряска яйца
+                eggContainer.style.transform = `scale(0.95) rotate(${(Math.random()-0.5)*10}deg)`;
+                setTimeout(() => eggContainer.style.transform = '', 100);
+
+                // Добавление трещин
+                if (gameState.eggClicks % 3 === 0) {
+                    addCrack();
+                }
+
+                if (gameState.eggClicks >= EGG_HATCH_LIMIT) {
+                    hatch();
+                }
+                saveGame();
+            };
+        }
+
+        function addCrack() {
+            const crack = document.createElement('div');
+            crack.className = 'crack';
+            crack.style.left = Math.random() * 80 + 10 + '%';
+            crack.style.top = Math.random() * 80 + 10 + '%';
+            crack.style.height = 20 + Math.random() * 40 + 'px';
+            crack.style.transform = `rotate(${Math.random() * 360}deg)`;
+            eggVisual.appendChild(crack);
+        }
+
+        function hatch() {
+            eggOverlay.style.opacity = '0';
+            setTimeout(() => {
+                eggOverlay.style.display = 'none';
+                gameState.stage = 'BABY';
+                saveGame();
+                initLizardEngine(gameState);
+            }, 1000);
+        }
+
+        // --- ИНИЦИАЛИЗАЦИЯ ДВИЖКА ЯЩЕРКА ---
+
+        function initLizardEngine(gameState) {
+            if (lizardEngineStarted) return;
+            lizardEngineStarted = true;
+
+            eggOverlay.style.display = 'none';
+            uiTop.style.display = 'flex';
+            actionBtn.style.display = 'flex';
+
+            // --- ПРИМЕНЕНИЕ ДНК И ЦВЕТОВОЙ ГАРМОНИИ ---
+            const dna = gameState.dna;
+            const h = dna.h;
+            const s = dna.s;
+            const l = dna.l;
+
+            // Базовый цвет (Main Color)
+            const colorBody = `hsl(${h}, ${s}%, ${l}%)`;
+            
+            // Пузико (Belly Color): H, S, L + 25%
+            const colorBelly = `hsl(${h}, ${s}%, ${l + 25}%)`;
+            
+            // Полоски на пузе: H, S - 10%, L - 10% от пузика
+            const colorBellyScale = `hsl(${h}, ${s - 10}%, ${l + 15}%)`;
+            
+            // Акцентный цвет (Лапы, Жабры): H + 180 (комплементарный) или H + 40 (аналоговый)
+            const accentH = (dna.accentType === 'complementary') ? ((h + 180) % 360) : ((h + 40) % 360);
+            const colorAccent = `hsl(${accentH}, 90%, 60%)`;
+            
+            const colorLegs = `hsl(${h}, ${s}%, ${l * 0.8}%)`; 
+            const colorFeet = colorAccent;
+            const colorGills = colorAccent;
+            const colorLips = `hsl(${h}, ${s}%, ${l - 10}%)`;
+            const colorSpikes = `hsl(${h}, ${s - 20}%, ${l - 20}%)`;
+            const colorPhalanges = `hsl(${accentH}, 60%, 45%)`;
+            const colorEye = '#030712';
+            const colorPupil = '#ffffff';
+            
+            // Настройки размеров
+            const numSegments = 18; 
+            let segmentDist = 19; 
+            let baseRadius = 40; 
+
+            // --- СОСТОЯНИЕ ИГРЫ (ВНУТРИ ДВИЖКА) ---
+            let appState = 'roam'; 
+            let visualScale = 1;
+            let targetScale = 1;
+
+            let foods = []; 
+            let chewTimer = 0;
+            let startleTimer = 0;
+            let pleasure = 0; 
+            let isEnjoying = false;
+
+            let thoughtBubble = {
+                active: false, emojis: [], visibleCount: 0, timer: 0, x: 0, y: 0,
+                isPopping: false, popTimer: 0, activationDelay: 0,
+                emojiSet: ['🐛', '🦎', '❤️', '💤', '🦟', '🍃', '☀️', '🌈', '💧', '🍖']
+            };
+
+            let isLicking = false, lickTimer = 0, lickedFoodIndex = -1;
+            let breaths = []; 
+
+            function updateLizardDimensions() {
+                let stageScale = (gameState.stage === 'BABY') ? 0.6 : 1.0;
+                segmentDist = 19 * dna.tailLength * visualScale * stageScale;
+                baseRadius = 40 * dna.bodyFat * visualScale * stageScale;
+            }
+
+            let leftEyeBlink = 0, rightEyeBlink = 0;
+            let leftBlinkSpeed = 0, rightBlinkSpeed = 0;
+            let rightBlinkDelay = 0, nextBlinkTime = 0;
+            let isSniffing = false, sniffTimer = 0;
+            let pupilDartX = 0, pupilDartY = 0, curPupilX = 0, curPupilY = 0;
+            let saccadeTimer = 0, interestTimer = 0, ignoreTimer = 0;
+            let tailWagTarget = 0, tailWagCurrent = 0, tailWagTimer = 0;
+            let bugsLeft = 5, feedIdleTimer = 0;
+
+            // Сначала вызовем resize, чтобы установить точные размеры canvas (иначе они 300x150, и ящерица респится в левом верхнем углу)
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+
+            let mouseX = canvas.width/2, mouseY = canvas.height/2;
+            let lastMouseX = mouseX, lastMouseY = mouseY;
+
+            let target = { x: Math.floor(canvas.width / 2), y: Math.floor(canvas.height / 2) };
+            let wanderTarget = { x: canvas.width / 2, y: canvas.height / 3 };
+            let points = [];
+            let angles = []; 
+            let segR = []; // Объявляем здесь, чтобы helper-функции видели актуальную анатомию
+            let currentHeadAngle = -Math.PI / 2; 
+
+            for (let i = 0; i < numSegments; i++) {
+                points.push({ x: target.x, y: target.y + i * 19 });
+                angles.push(currentHeadAngle);
+            }
+
+            let legs = [
+                { seg: 3, side: 1, isFront: true, x: 0, y: 0, startX: 0, startY: 0, targetX: 0, targetY: 0, stepTime: 0, isStepping: false, groupId: 0, toeOffsets: [0,0,0,0], cooldownTimer: 0 },
+                { seg: 3, side: -1, isFront: true, x: 0, y: 0, startX: 0, startY: 0, targetX: 0, targetY: 0, stepTime: 0, isStepping: false, groupId: 1, toeOffsets: [0,0,0,0], cooldownTimer: 0 },
+                { seg: 6, side: 1, isFront: false, x: 0, y: 0, startX: 0, startY: 0, targetX: 0, targetY: 0, stepTime: 0, isStepping: false, groupId: 1, toeOffsets: [0,0,0,0], cooldownTimer: 0 }, 
+                { seg: 6, side: -1, isFront: false, x: 0, y: 0, startX: 0, startY: 0, targetX: 0, targetY: 0, stepTime: 0, isStepping: false, groupId: 0, toeOffsets: [0,0,0,0], cooldownTimer: 0 } 
+            ];
+
+            legs.forEach(leg => {
+                leg.x = points[leg.seg].x + 60 * leg.side;
+                leg.y = points[leg.seg].y;
+            });
+            
+            let moveState = 'idle', stateTimer = 0, time = 0;
+            let currentSpeed = 0, targetSpeed = 0, bodySway = 0;
+
+            updateLizardDimensions();
+
+            // --- УПРАВЛЕНИЕ UI И ВЗАИМОДЕЙСТВИЕМ (ВНУТРИ ДВИЖКА) ---
+
+            actionBtn.onclick = (e) => {
+                e.stopPropagation();
+                if (appState === 'roam') {
+                    appState = 'feed';
+                    bugsLeft = 5;
+                    feedIdleTimer = 0;
+                    titleText.innerText = 'Время кушать';
+                    descText.innerText = `Осталось ${bugsLeft} сочных жуков`;
+                    actionBtn.style.display = 'none'; 
+                    foods = [];
+                }
+            };
+
+            function endFeedMode() {
+                appState = 'roam';
+                titleText.innerText = 'Свободный режим';
+                descText.innerText = 'Стучи по стеклу, пугай или гладь пузико';
+                actionBtn.style.display = 'flex'; 
+                isLicking = false;
+                foods = [];
+            }
+
+            window.addEventListener('pointerdown', (e) => {
+                if (!lizardEngineStarted) return;
+                if (e.pointerType === 'mouse' && e.button !== 0) return; 
+                handleInteraction(e, e.clientX, e.clientY);
+            });
+
+            function handleInteraction(e, x, y) {
+                if (e && e.target && (e.target.tagName === 'BUTTON' || e.target.id === 'egg-container' || e.target.closest('#egg-container'))) return;
+                
+                showClickEffect(x, y);
+                
+                if (isEnjoying) {
+                    let dx = points[0].x - x;
+                    let dy = points[0].y - y;
+                    let dist = Math.sqrt(dx*dx + dy*dy);
+                    if (dist < 200) {
+                        pleasure = 0;
+                        isEnjoying = false;
+                        startleTimer = 30;
+                    }
+                }
+
+                if (appState === 'roam') {
+                    let dx = points[0].x - x;
+                    let dy = points[0].y - y;
+                    let dist = Math.sqrt(dx*dx + dy*dy);
+                    if (dist < 180) { 
+                        let pushAngle = Math.atan2(dy, dx);
+                        startleTimer = 50; 
+                        let escapeDist = 200;
+                        wanderTarget.x = points[0].x + Math.cos(pushAngle) * escapeDist;
+                        wanderTarget.y = points[0].y + Math.sin(pushAngle) * escapeDist;
+                        wanderTarget.x = Math.max(120, Math.min(canvas.width - 120, wanderTarget.x));
+                        wanderTarget.y = Math.max(120, Math.min(canvas.height - 120, wanderTarget.y));
+                        moveState = 'darting';
+                        targetSpeed = 7; 
+                        interestTimer = 0;
+                    } else {
+                        interestTimer = 180;
+                        ignoreTimer = 0;
+                        wanderTarget.x = x;
+                        wanderTarget.y = y;
+                        moveState = 'darting';
+                        targetSpeed = 4.5; 
+                    }
+                } 
+                else if (appState === 'feed') {
+                    if (bugsLeft > 0) {
+                        foods.push({ x: x, y: y, birth: time, flying: false, isOver: false });
+                        bugsLeft--;
+                        descText.innerText = bugsLeft > 0 ? `Осталось ${bugsLeft} сочных жуков` : 'Ждем пока всё съест...';
+                        feedIdleTimer = 0;
+                    }
+                } 
+            }
+
+            window.addEventListener('pointermove', (e) => {
+                if (!lizardEngineStarted) return;
+                trackMouse(e.clientX, e.clientY);
+            });
+
+            function trackMouse(x, y) {
+                mouseX = x; mouseY = y;
+                if (appState === 'roam') {
+                    let speed = Math.hypot(mouseX - lastMouseX, mouseY - lastMouseY);
+                    let isOverBody = false;
+                    for (let i = 2; i < 10; i++) {
+                        if (Math.hypot(points[i].x - mouseX, points[i].y - mouseY) < baseRadius + 20) {
+                            isOverBody = true; break;
+                        }
+                    }
+                    if (isOverBody && speed > 3) {
+                        pleasure += speed * 0.3;
+                        if (pleasure > 150) pleasure = 150;
+                    }
+                }
+                lastMouseX = mouseX; lastMouseY = mouseY;
+            }
+
+        // --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
+        function lerpAngle(a, b, t) {
+            let d = b - a;
+            while (d < -Math.PI) d += Math.PI * 2;
+            while (d > Math.PI) d -= Math.PI * 2;
+            return a + d * t;
+        }
+
+        // --- ОТРИСОВКА ---
+
+        function drawGills() {
+            const angle = currentHeadAngle;
+            const hx = points[0].x;
+            const hy = points[0].y;
+            
+            for(let side of [-1, 1]) {
+                const attachAngle = angle + (Math.PI/2) * side;
+                const ax = hx + Math.cos(angle) * 10 + Math.cos(attachAngle) * 22;
+                const ay = hy + Math.sin(angle) * 10 + Math.sin(attachAngle) * 22;
+                
+                let endpoints = [];
+                let anglesArr = [];
+
+                // 1. Вычисляем координаты палочек (Сильно растопыриваем их)
+                for(let j = 0; j < 3; j++) {
+                    // ИСПРАВЛЕНИЕ: Симметричный расчет угла (PI/2 вместо PI/2.3)
+                    let gillAngle = angle + (Math.PI/2.0 + 0.35*j) * side;
+                    // Складывает жабры, когда кайфует
+                    if (isEnjoying) gillAngle += 0.25 * side;
+                    
+                    // ИСПРАВЛЕНИЕ: Жабры длиннее и сильнее торчат
+                    let length = 36 + j*12; 
+                    // Микро-анимация: кончики дрожат при дыхании
+                    length += Math.sin(time * 3 + j) * 2;
+
+                    endpoints.push({
+                        x: ax + Math.cos(gillAngle) * length,
+                        y: ay + Math.sin(gillAngle) * length
+                    });
+                    anglesArr.push(gillAngle);
+                }
+
+                // 2. Рисуем перепонки (пленка между жабрами)
+                ctx.beginPath();
+                ctx.moveTo(ax, ay);
+                ctx.lineTo(endpoints[0].x, endpoints[0].y);
+
+                for (let j = 0; j < 2; j++) {
+                    let midAngle = (anglesArr[j] + anglesArr[j+1]) / 2;
+                    let midDist = 24 + j*8; 
+                    let cx = ax + Math.cos(midAngle) * midDist;
+                    let cy = ay + Math.sin(midAngle) * midDist;
+                    ctx.quadraticCurveTo(cx, cy, endpoints[j+1].x, endpoints[j+1].y);
+                }
+
+                ctx.lineTo(ax, ay);
+                // Используем полупрозрачный акцентный цвет для кожицы
+                ctx.fillStyle = colorAccent.replace(')', ', 0.35)').replace('hsl', 'hsla'); 
+                ctx.fill();
+
+                // 3. Рисуем жесткие хрящики
+                for(let j = 0; j < 3; j++) {
+                    ctx.beginPath();
+                    ctx.moveTo(ax, ay);
+                    ctx.lineTo(endpoints[j].x, endpoints[j].y);
+                    
+                    let grd = ctx.createLinearGradient(ax, ay, endpoints[j].x, endpoints[j].y);
+                    grd.addColorStop(0, colorAccent);
+                    grd.addColorStop(1, `hsl(${accentH}, 100%, 75%)`); 
+
+                    ctx.strokeStyle = grd; 
+                    ctx.lineWidth = 5;
+                    ctx.lineCap = 'round';
+                    ctx.stroke();
+                }
+            }
+        }
+
+
+        function drawLimbBase(leg) {
+            const bodyPoint = points[leg.seg];
+            const bodyAngle = angles[leg.seg]; 
+            const shoulderOffset = 18; 
+            const sx = bodyPoint.x + Math.cos(bodyAngle + (Math.PI/2)*leg.side) * shoulderOffset;
+            const sy = bodyPoint.y + Math.sin(bodyAngle + (Math.PI/2)*leg.side) * shoulderOffset;
+
+            const px = leg.x;
+            const py = leg.y;
+            
+            const L1 = leg.isFront ? 35 : 38; 
+            const L2 = leg.isFront ? 35 : 38; 
+
+            const dx = px - sx;
+            const dy = py - sy;
+            const D = Math.hypot(dx, dy);
+
+            let kneeX, kneeY;
+            
+            if (D >= L1 + L2) {
+                kneeX = sx + dx * (L1 / D);
+                kneeY = sy + dy * (L1 / D);
+            } else {
+                let a = (L1*L1 - L2*L2 + D*D) / (2 * D);
+                let h = Math.sqrt(Math.max(0, L1*L1 - a*a));
+                let p3x = sx + dx * (a / D);
+                let p3y = sy + dy * (a / D);
+                let nx = -dy / D;
+                let ny = dx / D;
+                let bendSign = leg.side; // Инвертировали для передних лап: теперь локти смотрят наружу, а не внутрь
+
+                kneeX = p3x + nx * h * bendSign;
+                kneeY = p3y + ny * h * bendSign;
+            }
+
+            let grd = ctx.createLinearGradient(sx, sy, px, py);
+            grd.addColorStop(0, `hsl(${h}, ${s}%, ${l * 0.5}%)`);   // Очень темный основной
+            grd.addColorStop(0.5, colorBody);                       // Основной цвет на колене
+            grd.addColorStop(1, colorLegs);                        // Цвет лап у стопы
+
+            ctx.beginPath();
+            ctx.moveTo(sx, sy);
+            ctx.lineTo(kneeX, kneeY);
+            ctx.lineTo(px, py);
+            ctx.strokeStyle = grd;
+            ctx.lineWidth = 20; 
+            ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
+            ctx.stroke();
+
+            leg.footAngle = Math.atan2(py - kneeY, px - kneeX);
+        }
+
+        // КОШАЧЬИ ПОДУШЕЧКИ ЛАП С УСИЛЕННОЙ АНИМАЦИЕЙ ПРИСОСКИ
+        function drawFootPads(leg) {
+            let pressureScale = 1.3;
+            let isLifted = false;
+
+            if (leg.isStepping) {
+                // Лапа отрывается и сжимается в воздухе
+                let lift = Math.sin(leg.stepTime * Math.PI); 
+                pressureScale = 1.3 - lift * 0.7; // Сжимается до 0.6
+                isLifted = lift > 0.2;
+            }
+
+            const drawPad = (x, y, r) => {
+                // Тень, когда лапа оторвана от стекла
+                ctx.shadowColor = isLifted ? 'rgba(0,0,0,0.3)' : 'transparent';
+                ctx.shadowBlur = isLifted ? 8 : 0;
+                ctx.shadowOffsetY = isLifted ? 5 : 0;
+
+                ctx.beginPath();
+                ctx.arc(x, y, r * pressureScale, 0, Math.PI * 2);
+                
+                // Основание подушечки - градиент (тень и объем)
+                let padGrd = ctx.createRadialGradient(x, y, r * 0.2, x, y, r * pressureScale);
+                padGrd.addColorStop(0, colorAccent); 
+                padGrd.addColorStop(1, `hsl(${accentH}, 90%, 40%)`); 
+                
+                ctx.fillStyle = padGrd; 
+                ctx.fill();
+                
+                ctx.shadowColor = 'transparent'; // сброс тени
+
+                // Сплошное пятно контакта при давлении на стекло
+                if (pressureScale > 1.0) {
+                    ctx.beginPath();
+                    let highlightR = r * ((pressureScale - 0.9) * 1.8);
+                    ctx.arc(x, y, Math.max(0, highlightR), 0, Math.PI * 2);
+                    ctx.fillStyle = `hsl(${accentH}, 100%, 75%)`; 
+                    ctx.fill();
+
+                    // Влажный блик на подушечке (при давлении)
+                    ctx.beginPath();
+                    ctx.arc(x - r*0.3, y - r*0.3, r*0.25, 0, Math.PI*2);
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+                    ctx.fill();
+                } else {
+                    // Маленький блик, когда лапа в воздухе
+                    ctx.beginPath();
+                    ctx.arc(x - r*0.4, y - r*0.4, r*0.15, 0, Math.PI*2);
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+                    ctx.fill();
+                }
+            };
+
+            // Четыре пальчика вокруг (съезжаются и разъезжаются от давления)
+            // Когда лапа в воздухе (pressureScale = 0.6), пальцы сжимаются в щепотку (угол 0.35)
+            // Когда лапа на стекле (pressureScale = 1.3), пальцы растопыриваются веером (угол ~0.7)
+            let splayFactor = (pressureScale - 0.6) / 0.7; 
+            let toeSpread = 0.35 + (splayFactor * 0.35); 
+            
+            for(let i = -1.5; i <= 1.5; i += 1) {
+                let toeIndex = Math.floor(i + 1.5); // 0, 1, 2, 3
+                // Добавляем индивидуальное случайное отклонение (оно меняется каждый шаг)
+                // Random offset is scaled by splayFactor so toes bunch tightly in flight
+                let randomOffset = leg.toeOffsets[toeIndex] * (0.3 + splayFactor * 0.7);
+                
+                let toeAngle = leg.footAngle + (i * toeSpread) + randomOffset;
+                let toeDist = (21 + (leg.toeOffsets[toeIndex] * 10)) * pressureScale;
+                let tx = leg.x + Math.cos(toeAngle) * toeDist;
+                let ty = leg.y + Math.sin(toeAngle) * toeDist;
+
+                // Фаланга: линия от ладошки до подушечки
+                ctx.beginPath();
+                ctx.moveTo(leg.x + Math.cos(toeAngle) * 9, leg.y + Math.sin(toeAngle) * 9); 
+                ctx.lineTo(tx, ty);
+                
+                let falGrd = ctx.createLinearGradient(leg.x, leg.y, tx, ty);
+                falGrd.addColorStop(0, colorLegs);
+                falGrd.addColorStop(1, colorPhalanges);
+                
+                ctx.strokeStyle = falGrd;
+                ctx.lineWidth = 6;
+                ctx.lineCap = 'round';
+                ctx.stroke();
+
+                // Крайние подушечки на 8% меньше основных (индексы 0 и 3), чтобы не слипались
+                let isOuterToe = (toeIndex === 0 || toeIndex === 3);
+                let padRadius = isOuterToe ? (5.5 * 0.92) : 5.5;
+                drawPad(tx, ty, padRadius); 
+            }
+
+            // Главная центральная подушечка рисуется ПОСЛЕДНЕЙ, чтобы скрыть основания пальцев
+            drawPad(leg.x, leg.y, 10); 
+        }
+
+        function drawHeadAndEyes() {
+            const hx = points[0].x;
+            const hy = points[0].y;
+            const angle = currentHeadAngle;
+
+            ctx.save();
+            ctx.translate(hx + Math.cos(angle)*15, hy + Math.sin(angle)*15);
+            ctx.rotate(angle + Math.PI/2);
+            
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 52, 38, 0, 0, Math.PI*2);
+            let headBodyGrd = ctx.createRadialGradient(-10, -10, 5, 0, 0, 52);
+            headBodyGrd.addColorStop(0, `hsl(${h}, ${s}%, ${l + 10}%)`); // Блик
+            headBodyGrd.addColorStop(1, colorBody); // Темный край
+            ctx.fillStyle = headBodyGrd;
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.ellipse(0, 4, 44, 24, 0, 0, Math.PI*2); 
+            let headBellyGrd = ctx.createRadialGradient(0, 4, 0, 0, 4, 44);
+            headBellyGrd.addColorStop(0, `hsl(${h}, ${s}%, ${l + 35}%)`); // Блик на челюсти
+            headBellyGrd.addColorStop(1, colorBelly); // Цвет пузика
+            ctx.fillStyle = headBellyGrd;
+            ctx.fill();
+            ctx.restore();
+
+            const mouthDist = 10; 
+            const mouthW = 24; 
+            const lickMouthOpen = isLicking ? Math.sin(lickTimer * Math.PI) * 18 : 0;
+            // ИСПРАВЛЕНИЕ: Рот открывается пошире для толстого языка, а не для тонкого
+            const sniffMouthOpen = isSniffing ? Math.sin(sniffTimer) * 12 : 0;
+            
+            const mouthOpenness = lickMouthOpen || sniffMouthOpen || ((chewTimer > 0) ? Math.abs(Math.sin(chewTimer * 0.5)) * 8 : (startleTimer > 0 ? 9 : Math.min(1, currentSpeed / 3) * 3));
+            const joyLift = isEnjoying ? 8 : 0;
+
+            const lx = hx + Math.cos(angle)*(mouthDist+6+joyLift) + Math.cos(angle - Math.PI/2)*mouthW;
+            const ly = hy + Math.sin(angle)*(mouthDist+6+joyLift) + Math.sin(angle - Math.PI/2)*mouthW;
+            const rx = hx + Math.cos(angle)*(mouthDist+6+joyLift) + Math.cos(angle + Math.PI/2)*mouthW;
+            const ry = hy + Math.sin(angle)*(mouthDist+6+joyLift) + Math.sin(angle + Math.PI/2)*mouthW;
+
+            // 1. ЗАЛИВАЕМ ТЕМНОТУ ОТКРЫТОЙ ПАСТИ (САМЫЙ НИЖНИЙ СЛОЙ)
+            if (mouthOpenness > 1.5) {
+                ctx.beginPath();
+                ctx.moveTo(lx, ly);
+                ctx.bezierCurveTo(
+                    hx + Math.cos(angle)*(mouthDist+3) + Math.cos(angle - Math.PI/2)*(mouthW*0.4),
+                    hy + Math.sin(angle)*(mouthDist+3) + Math.sin(angle - Math.PI/2)*(mouthW*0.4),
+                    hx + Math.cos(angle)*(mouthDist+3) + Math.cos(angle + Math.PI/2)*(mouthW*0.4),
+                    hy + Math.sin(angle)*(mouthDist+3) + Math.sin(angle + Math.PI/2)*(mouthW*0.4),
+                    rx, ry
+                );
+                ctx.bezierCurveTo(
+                    hx + Math.cos(angle)*(mouthDist-mouthOpenness) + Math.cos(angle + Math.PI/2)*(mouthW*0.4),
+                    hy + Math.sin(angle)*(mouthDist-mouthOpenness) + Math.sin(angle + Math.PI/2)*(mouthW*0.4),
+                    hx + Math.cos(angle)*(mouthDist-mouthOpenness) + Math.cos(angle - Math.PI/2)*(mouthW*0.4),
+                    hy + Math.sin(angle)*(mouthDist-mouthOpenness) + Math.sin(angle - Math.PI/2)*(mouthW*0.4),
+                    lx, ly
+                );
+                ctx.fillStyle = '#022c22';
+                ctx.fill();
+            }
+
+            // 2. РИСУЕМ КОНТУР ГУБ (СРЕДНИЙ СЛОЙ)
+            // Рисуем обводку рта до языка, чтобы язык лежал поверх нее и не казался зажатым
+            ctx.beginPath();
+            ctx.moveTo(lx, ly);
+            ctx.bezierCurveTo(
+                hx + Math.cos(angle)*(mouthDist+3) + Math.cos(angle - Math.PI/2)*(mouthW*0.4),
+                hy + Math.sin(angle)*(mouthDist+3) + Math.sin(angle - Math.PI/2)*(mouthW*0.4),
+                hx + Math.cos(angle)*(mouthDist+3) + Math.cos(angle + Math.PI/2)*(mouthW*0.4),
+                hy + Math.sin(angle)*(mouthDist+3) + Math.sin(angle + Math.PI/2)*(mouthW*0.4),
+                rx, ry
+            );
+            if (mouthOpenness > 1.5) {
+                ctx.bezierCurveTo(
+                    hx + Math.cos(angle)*(mouthDist-mouthOpenness) + Math.cos(angle + Math.PI/2)*(mouthW*0.4),
+                    hy + Math.sin(angle)*(mouthDist-mouthOpenness) + Math.sin(angle + Math.PI/2)*(mouthW*0.4),
+                    hx + Math.cos(angle)*(mouthDist-mouthOpenness) + Math.cos(angle - Math.PI/2)*(mouthW*0.4),
+                    hy + Math.sin(angle)*(mouthDist-mouthOpenness) + Math.sin(angle - Math.PI/2)*(mouthW*0.4),
+                    lx, ly
+                );
+            }
+            
+            ctx.strokeStyle = colorLips;
+            ctx.lineWidth = 3;
+            ctx.lineCap = 'round';
+            ctx.stroke();
+
+            // 4. НОЗДРИ (ВЕРНУЛ НА МЕСТО)
+            const nostrilDist = 28;
+            for(let side of [-1, 1]) {
+                const nx = hx + Math.cos(angle)*nostrilDist + Math.cos(angle + Math.PI/2*side)*8;
+                const ny = hy + Math.sin(angle)*nostrilDist + Math.sin(angle + Math.PI/2*side)*8;
+                ctx.beginPath(); ctx.arc(nx, ny, 2, 0, Math.PI*2);
+                ctx.fillStyle = '#022c22'; ctx.fill();
+            }
+
+            function drawEye(sideMultiplier) {
+                const eyeForward = 32; 
+                const eyeSide = 30;    
+                const ex = hx + Math.cos(angle)*eyeForward + Math.cos(angle + Math.PI/2*sideMultiplier)*eyeSide;
+                const ey = hy + Math.sin(angle)*eyeForward + Math.sin(angle + Math.PI/2*sideMultiplier)*eyeSide;
+
+                ctx.beginPath(); ctx.arc(ex, ey, 16, 0, Math.PI * 2); 
+                ctx.fillStyle = colorBody; ctx.fill();
+
+                // ИНДИВИДУАЛЬНОЕ МОРГАНИЕ
+                let currentBlink = sideMultiplier === 1 ? leftEyeBlink : rightEyeBlink;
+                let blinkAmount = currentBlink > 0 ? Math.sin(currentBlink) : 0;
+                if (isEnjoying) blinkAmount = 1; // Щурится от удовольствия
+
+                let eyeOpenness = 1 - blinkAmount;
+
+                if (eyeOpenness < 0.1) {
+                    // Полностью закрытый глаз
+                    ctx.beginPath();
+                    ctx.moveTo(ex - Math.cos(angle + Math.PI/2)*12, ey - Math.sin(angle + Math.PI/2)*12);
+                    ctx.lineTo(ex + Math.cos(angle + Math.PI/2)*12, ey + Math.sin(angle + Math.PI/2)*12);
+                    ctx.strokeStyle = colorBellyScale; ctx.lineWidth = 5; ctx.stroke();
+                } else {
+                    ctx.save();
+                    ctx.translate(ex, ey);
+                    ctx.rotate(angle); // Поворачиваем по оси головы
+                    
+                    // Расплющиваем глаз при моргании
+                    ctx.beginPath(); 
+                    ctx.ellipse(0, 0, 13, 13 * eyeOpenness, 0, 0, Math.PI * 2); 
+                    ctx.fillStyle = colorEye; ctx.fill();
+
+                    
+                    let lx = 0, ly = 0;
+                    
+                    if (appState === 'feed' && foods.length > 0) {
+                        // Смотрим на ближайшую еду (даже если она улетает)
+                        let targetF = foods[0], minDF = 9999;
+                        foods.forEach(f => {
+                            let d = Math.hypot(ex - f.x, ey - f.y);
+                            if (d < minDF) { minDF = d; targetF = f; }
+                        });
+                        let lookA = Math.atan2(targetF.y - ey, targetF.x - ex);
+                        lx = Math.cos(lookA - angle) * 5; ly = Math.sin(lookA - angle) * 5;
+                    }
+                    else if ((appState === 'roam' && (interestTimer > 0 || pleasure > 0)) && startleTimer <= 0) {
+                        let lookA = Math.atan2(mouseY - ey, mouseX - ex);
+                        lx = Math.cos(lookA - angle) * 5; ly = Math.sin(lookA - angle) * 5;
+                    } else {
+                        // Живой бегающий взгляд (саккады)
+                        lx = 3 + curPupilX; 
+                        ly = (sideMultiplier * 2) + curPupilY;
+                        
+                        // Ограничение, чтобы зрачок не вылез за глаз
+                        let d = Math.hypot(lx, ly);
+                        if (d > 6) { lx = (lx/d)*6; ly = (ly/d)*6; }
+                    }
+
+                    // Зрачок сплющивается вместе с глазом!
+                    ctx.beginPath(); ctx.arc(lx, ly, 4.5, 0, Math.PI * 2);
+                    ctx.fillStyle = colorPupil; ctx.fill();
+                    ctx.beginPath(); ctx.arc(lx - 1.5, ly - 1.5, 1.8, 0, Math.PI * 2);
+                    ctx.fillStyle = colorPupil; ctx.fill();
+
+                    ctx.restore();
+                }
+            }
+            drawEye(1); drawEye(-1);
+
+            // 3. РИСУЕМ ЯЗЫК (САМЫЙ ВЕРХНИЙ СЛОЙ - ПЕРЕНЕСЕН СЮДА)
+            // Корень языка смещен вглубь черной пасти так, чтобы между ним и нижней губой был виден черный зазор
+            const mouthInsideOffset = mouthDist - (mouthOpenness * 0.2);
+            const mouthInsideX = hx + Math.cos(angle) * mouthInsideOffset;
+            const mouthInsideY = hy + Math.sin(angle) * mouthInsideOffset;
+
+            if (isLicking && foods[lickedFoodIndex]) {
+                let foodT = foods[lickedFoodIndex];
+                let progress = lickTimer < 0.4 ? (lickTimer / 0.4) : 1 - ((lickTimer - 0.4) / 0.6);
+                progress = Math.sin(progress * Math.PI / 2); 
+
+                let tx = mouthInsideX + (foodT.x - mouthInsideX) * progress;
+                let ty = mouthInsideY + (foodT.y - mouthInsideY) * progress;
+
+                ctx.beginPath();
+                ctx.moveTo(mouthInsideX, mouthInsideY);
+                ctx.quadraticCurveTo(
+                    mouthInsideX + Math.cos(angle)*15, 
+                    mouthInsideY + Math.sin(angle)*15,
+                    tx, ty
+                );
+                let tGrd = ctx.createLinearGradient(mouthInsideX, mouthInsideY, tx, ty);
+                tGrd.addColorStop(0, '#be123c');
+                tGrd.addColorStop(1, '#fb7185');
+                ctx.strokeStyle = tGrd; 
+                ctx.lineWidth = 10;
+                ctx.lineCap = 'round';
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.arc(tx, ty, 8, 0, Math.PI*2);
+                let tipGrdT = ctx.createRadialGradient(tx - 3, ty - 3, 1, tx, ty, 8);
+                tipGrdT.addColorStop(0, '#fda4af');
+                tipGrdT.addColorStop(1, '#e11d48');
+                ctx.fillStyle = tipGrdT;
+                ctx.fill();
+
+                if (lickTimer >= 0.4) {
+                    foodT.x = tx;
+                    foodT.y = ty;
+                }
+            }
+
+            // Нюханье воздуха языком (тоже поверх губ)
+            if (isSniffing) {
+                let popOut = Math.sin(sniffTimer) * 22; // Длина выпада языка
+                
+                let tx = mouthInsideX + Math.cos(angle) * popOut;
+                let ty = mouthInsideY + Math.sin(angle) * popOut;
+                
+                // Толстый язычок
+                ctx.beginPath();
+                ctx.moveTo(mouthInsideX, mouthInsideY);
+                ctx.lineTo(tx, ty);
+                let tGrd = ctx.createLinearGradient(mouthInsideX, mouthInsideY, tx, ty);
+                tGrd.addColorStop(0, '#be123c');
+                tGrd.addColorStop(1, '#fb7185');
+                ctx.strokeStyle = tGrd; 
+                ctx.lineWidth = 10; 
+                ctx.lineCap = 'round';
+                ctx.stroke();
+
+                // Округлый кончик языка
+                ctx.beginPath();
+                ctx.arc(tx, ty, 8, 0, Math.PI*2);
+                let tipGrdT = ctx.createRadialGradient(tx - 3, ty - 3, 1, tx, ty, 8);
+                tipGrdT.addColorStop(0, '#fda4af');
+                tipGrdT.addColorStop(1, '#e11d48');
+                ctx.fillStyle = tipGrdT;
+                ctx.fill();
+            }
+        }
+
+        function drawThoughtBubbleConnectors() {
+            if (!thoughtBubble.active) return;
+            
+            ctx.save();
+            const hx = points[0].x;
+            const hy = points[0].y;
+            
+            // Стилизация пузырьков (белый фон + тень)
+            ctx.fillStyle = 'white';
+            ctx.shadowColor = 'rgba(0,0,0,0.1)';
+            ctx.shadowBlur = 5;
+            
+            let alpha = thoughtBubble.isPopping ? thoughtBubble.popTimer : 1;
+            ctx.globalAlpha = alpha;
+            
+            // Кружочки-пузырьки (ведущие к облаку) - Рисуем ЗА головой
+            ctx.beginPath(); ctx.arc(hx + thoughtBubble.x * 0.3, hy + thoughtBubble.y * 0.3, 6, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(hx + thoughtBubble.x * 0.6, hy + thoughtBubble.y * 0.6, 10, 0, Math.PI * 2); ctx.fill();
+            ctx.restore();
+        }
+
+        function drawThoughtBubbleMain() {
+            if (!thoughtBubble.active) return;
+            
+            const hx = points[0].x;
+            const hy = points[0].y;
+            const bx = hx + thoughtBubble.x;
+            const by = hy + thoughtBubble.y;
+            
+            // Основное облако
+            const padding = 15;
+            const fontSize = 24;
+            const bubbleW = thoughtBubble.emojis.length * 30 + padding * 2;
+            const bubbleH = fontSize + padding * 2;
+            
+            ctx.save();
+            
+            // Анимация хлопка
+            if (thoughtBubble.isPopping) {
+                let scale = 1 + (1 - thoughtBubble.popTimer) * 0.4;
+                ctx.translate(bx, by);
+                ctx.scale(scale, scale);
+                ctx.translate(-bx, -by);
+                ctx.globalAlpha = thoughtBubble.popTimer;
+            } else {
+                ctx.globalAlpha = 1.0;
+            }
+
+            ctx.shadowColor = 'rgba(0,0,0,0.1)';
+            ctx.shadowBlur = 10;
+            ctx.fillStyle = 'white';
+            ctx.beginPath();
+            if (ctx.roundRect) {
+                // Больший радиус скругления для пущей круглости
+                ctx.roundRect(bx - bubbleW / 2, by - bubbleH / 2, bubbleW, bubbleH, 30);
+            } else {
+                ctx.rect(bx - bubbleW / 2, by - bubbleH / 2, bubbleW, bubbleH);
+            }
+            ctx.fill();
+
+            // Эмодзи внутри (поверх облака в том же контексте)
+            ctx.font = `${fontSize}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            for (let i = 0; i < thoughtBubble.visibleCount; i++) {
+                ctx.fillText(thoughtBubble.emojis[i], bx - bubbleW / 2 + padding + 15 + i * 30, by);
+            }
+            ctx.restore();
+        }
+
+        // --- ГЛАВНЫЙ ЦИКЛ ОБНОВЛЕНИЯ ---
+        function update() {
+            time += 0.05;
+            
+            // --- УМНАЯ СИСТЕМА МОРГАНИЯ И ЭМОЦИЙ ---
+            if (time > nextBlinkTime) {
+                let type = Math.random();
+                let speed = 0.15 + Math.random() * 0.2; // Разная скорость (от сонливой до резкой)
+                
+                if (type < 0.05) { 
+                    leftEyeBlink = 0.01; leftBlinkSpeed = speed; // Подмигивает левым
+                } else if (type < 0.10) { 
+                    rightEyeBlink = 0.01; rightBlinkSpeed = speed; // Подмигивает правым
+                } else if (type < 0.35) { 
+                    leftEyeBlink = 0.01; leftBlinkSpeed = speed; // Асинхронное моргание
+                    rightBlinkDelay = 0.1 + Math.random() * 0.2; 
+                    rightBlinkSpeed = speed;
+                } else { 
+                    leftEyeBlink = 0.01; rightEyeBlink = 0.01; // Обычное моргание
+                    leftBlinkSpeed = speed; rightBlinkSpeed = speed;
+                }
+                nextBlinkTime = time + 1.5 + Math.random() * 5;
+            }
+
+            if (rightBlinkDelay > 0) {
+                rightBlinkDelay -= 0.05;
+                if (rightBlinkDelay <= 0) rightEyeBlink = 0.01;
+            }
+            
+            if (leftEyeBlink > 0) { leftEyeBlink += leftBlinkSpeed; if (leftEyeBlink >= Math.PI) leftEyeBlink = 0; }
+            if (rightEyeBlink > 0) { rightEyeBlink += rightBlinkSpeed; if (rightEyeBlink >= Math.PI) rightEyeBlink = 0; }
+
+            // Бегающий взгляд (саккады)
+            saccadeTimer--;
+            if (saccadeTimer <= 0) {
+                if (Math.random() < 0.4 && moveState === 'idle') {
+                    pupilDartX = (Math.random() - 0.5) * 8;
+                    pupilDartY = (Math.random() - 0.5) * 8;
+                    saccadeTimer = 20 + Math.random() * 40; 
+                } else {
+                    pupilDartX = 0; pupilDartY = 0;
+                    saccadeTimer = 60 + Math.random() * 100;
+                }
+            }
+            curPupilX += (pupilDartX - curPupilX) * 0.3;
+            curPupilY += (pupilDartY - curPupilY) * 0.3;
+
+            // ИСПРАВЛЕНИЕ: Нюханье воздуха (срабатывает еще реже)
+            if (moveState === 'idle' && !isLicking && !isEnjoying && chewTimer <= 0 && Math.random() < 0.001 && !isSniffing) {
+                isSniffing = true;
+                sniffTimer = 0;
+            }
+            if (isSniffing) {
+                sniffTimer += 0.12; 
+                if (sniffTimer >= Math.PI) isSniffing = false;
+            }
+            // ----------------------------------------
+
+            if (chewTimer > 0) chewTimer--;
+            if (startleTimer > 0) startleTimer--;
+            pleasure = Math.max(0, pleasure - 0.2); 
+            isEnjoying = pleasure > 60; 
+            
+            // Управление облаком мыслей
+            if (thoughtBubble.isPopping) {
+                // Если ящер СНОВА кайфует - отменяем лопанье
+                if (isEnjoying) {
+                    thoughtBubble.isPopping = false;
+                    thoughtBubble.popTimer = 0;
+                } else {
+                    thoughtBubble.popTimer -= 0.22;
+                    if (thoughtBubble.popTimer <= 0) {
+                        thoughtBubble.isPopping = false;
+                        thoughtBubble.active = false;
+                    }
+                }
+            }
+
+            if (isEnjoying) {
+                if (!thoughtBubble.active) {
+                    thoughtBubble.activationDelay++;
+                    // Появляется практически сразу: 0.5 сек (30 кадров)
+                    if (thoughtBubble.activationDelay > 30) {
+                        thoughtBubble.active = true;
+                        thoughtBubble.isPopping = false;
+                        thoughtBubble.emojis = [];
+                        let count = 3 + Math.floor(Math.random() * 3);
+                        for (let i = 0; i < count; i++) {
+                            thoughtBubble.emojis.push(thoughtBubble.emojiSet[Math.floor(Math.random() * thoughtBubble.emojiSet.length)]);
+                        }
+                        thoughtBubble.visibleCount = 0;
+                        thoughtBubble.timer = 0;
+                        thoughtBubble.x = (Math.random() - 0.5) * 100;
+                        thoughtBubble.y = -100 - Math.random() * 50;
+                    }
+                } else if (!thoughtBubble.isPopping) {
+                    thoughtBubble.timer++;
+                    // Печать чуть быстрее (20 кадров)
+                    if (thoughtBubble.timer > 20 && thoughtBubble.visibleCount < thoughtBubble.emojis.length) {
+                        thoughtBubble.visibleCount++;
+                        thoughtBubble.timer = 0;
+                    }
+                }
+            } else {
+                thoughtBubble.activationDelay = 0;
+                if (thoughtBubble.active && !thoughtBubble.isPopping) {
+                    thoughtBubble.isPopping = true;
+                    thoughtBubble.popTimer = 1.0;
+                }
+            }
+
+            visualScale += (targetScale - visualScale) * 0.05; 
+
+            // ЛОГИКА АВТОНОМНОГО ХВОСТА
+            tailWagTimer--;
+            if (tailWagTimer <= 0) {
+                // Выбираем новую случайную позицию изгиба (от -0.6 до 0.6)
+                // Если он кайфует, хвост расслаблен (ближе к нулю)
+                let maxWag = isEnjoying ? 0.3 : 1.2;
+                tailWagTarget = (Math.random() - 0.5) * maxWag;
+                // Замираем в этой позе от 1.5 до 4.5 секунд
+                tailWagTimer = 90 + Math.random() * 180;
+            }
+            // Плавное, но достаточно резкое движение хвоста к новой позе (эффект мышечного сокращения)
+            tailWagCurrent += (tailWagTarget - tailWagCurrent) * 0.15;
+
+            // Генерация дыхания (запотевшее стекло)
+            let prevBreathCycle = Math.sin((time - 0.05) * 1.5);
+            let currBreathCycle = Math.sin(time * 1.5);
+            if (prevBreathCycle <= 0.95 && currBreathCycle > 0.95 && Math.random() < 0.6) {
+                const hx = points[0].x;
+                const hy = points[0].y;
+                const angle = currentHeadAngle;
+                const nostrilDist = 32; 
+                for(let side of [-1, 1]) {
+                    const nx = hx + Math.cos(angle)*nostrilDist + Math.cos(angle + Math.PI/2*side)*12;
+                    const ny = hy + Math.sin(angle)*nostrilDist + Math.sin(angle + Math.PI/2*side)*12;
+                    breaths.push({x: nx, y: ny, life: 1.0});
+                }
+            }
+
+            // ЛОГИКА ЯЗЫКА
+            if (isLicking) {
+                lickTimer += 0.04; 
+                targetSpeed = 0; 
+                
+                if (lickTimer >= 1.0) {
+                    isLicking = false;
+                    if (foods[lickedFoodIndex]) {
+                        foods.splice(lickedFoodIndex, 1); 
+                        chewTimer = 60; 
+                    }
+                    lickedFoodIndex = -1;
+                    feedIdleTimer = 0; 
+                }
+            }
+
+            let activeTarget = wanderTarget; 
+            
+            if (appState === 'feed') {
+                feedIdleTimer += 0.05;
+                if (feedIdleTimer > 15) {
+                    foods.forEach(f => f.flying = true);
+                    descText.innerText = 'Жуки разлетелись...';
+                    if (feedIdleTimer > 17) { endFeedMode(); }
+                } else if (bugsLeft === 0 && foods.length === 0 && !isLicking && chewTimer <= 0) {
+                    endFeedMode();
+                }
+            }
+
+            if (appState === 'feed' && foods.length > 0 && !isLicking && chewTimer <= 0) {
+                // Ищем ближайшую НЕ улетающую еду
+                let validFoods = foods.filter(f => !f.flying);
+                let closestFood = null, minDist = 9999, cIdx = -1;
+
+                if (validFoods.length > 0) {
+                    validFoods.forEach((f) => { 
+                        let d = Math.hypot(points[0].x - f.x, points[0].y - f.y); 
+                        if (d < minDist) { minDist = d; closestFood = f; cIdx = foods.indexOf(f); } 
+                    });
+                    
+                    if (minDist < 110) { 
+                        isLicking = true; lickTimer = 0; lickedFoodIndex = cIdx;
+                    } else {
+                        wanderTarget.x = closestFood.x; wanderTarget.y = closestFood.y; targetSpeed = 3.5; 
+                    }
+                } else { 
+                    // Если все улетают, ящерица останавливается, но продолжает смотреть на ближайшего улетающего
+                    targetSpeed = 0; 
+                    let nearestAny = foods[0], minD = 9999;
+                    foods.forEach(f => {
+                       let d = Math.hypot(points[0].x - f.x, points[0].y - f.y);
+                       if (d < minD) { minD = d; nearestAny = f; }
+                    });
+                    wanderTarget.x = nearestAny.x; wanderTarget.y = nearestAny.y;
+                }
+            } else if (!isLicking) {
+                if (isEnjoying) { targetSpeed = 0; } 
+                else if (startleTimer > 0) { targetSpeed = 4.5; } 
+                else {
+                    let distToMouse = Math.hypot(points[0].x - mouseX, points[0].y - mouseY);
+                    if (ignoreTimer > 0) ignoreTimer--;
+                    if (ignoreTimer <= 0 && interestTimer <= 0 && distToMouse < 350 && distToMouse > 50 && appState === 'roam') {
+                        if (Math.random() < 0.02) { interestTimer = 250 + Math.random() * 150; moveState = 'crawling'; }
+                    }
+                    if (interestTimer > 0) {
+                        interestTimer--; wanderTarget.x = mouseX; wanderTarget.y = mouseY; targetSpeed = 2.2; 
+                        if (interestTimer <= 0) { 
+                            ignoreTimer = 500; moveState = 'idle'; stateTimer = 150; 
+                            wanderTarget.x = points[0].x + Math.cos(currentHeadAngle) * 150;
+                            wanderTarget.y = points[0].y + Math.sin(currentHeadAngle) * 150;
+                        }
+                    } else {
+                        stateTimer--;
+                        if (stateTimer <= 0) {
+                            let r = Math.random();
+                            if (r < 0.75) { 
+                                moveState = 'idle'; stateTimer = 150 + Math.random() * 150; targetSpeed = 0; 
+                                let slightTurn = (Math.random() - 0.5) * 0.8;
+                                wanderTarget.x = points[0].x + Math.cos(currentHeadAngle + slightTurn) * 150;
+                                wanderTarget.y = points[0].y + Math.sin(currentHeadAngle + slightTurn) * 150;
+                            }
+                            else if (r < 0.95) { 
+                                moveState = 'crawling'; stateTimer = 150 + Math.random() * 100; targetSpeed = 0.8; 
+                                let turn = (Math.random() - 0.5) * 1.5;
+                                wanderTarget.x = points[0].x + Math.cos(currentHeadAngle + turn) * 250;
+                                wanderTarget.y = points[0].y + Math.sin(currentHeadAngle + turn) * 250;
+                            }
+                            else { 
+                                moveState = 'darting'; stateTimer = 60; targetSpeed = 2.8; 
+                                let turn = (Math.random() - 0.5) * 0.5;
+                                wanderTarget.x = points[0].x + Math.cos(currentHeadAngle + turn) * 350;
+                                wanderTarget.y = points[0].y + Math.sin(currentHeadAngle + turn) * 350;
+                            }
+                            wanderTarget.x = Math.max(120, Math.min(canvas.width - 120, wanderTarget.x));
+                            wanderTarget.y = Math.max(120, Math.min(canvas.height - 120, wanderTarget.y));
+                        }
+                    }
+                }
+            }
+
+            let dx = activeTarget.x - points[0].x;
+            let dy = activeTarget.y - points[0].y;
+            let dist = Math.sqrt(dx*dx + dy*dy);
+
+            if (dist < 45 && !isLicking) { targetSpeed *= (dist / 45); }
+
+            // ИСПРАВЛЕНИЕ: ЖЕСТКАЯ БЛОКИРОВКА ТЕЛА (Сначала лапы, потом тело)
+            let steppingCount = 0;
+            let bodyHalted = false;
+
+            legs.forEach(leg => {
+                if (leg.isStepping) steppingCount++;
+
+                let p1 = points[leg.seg];
+                let bodyAngle = angles[leg.seg];
+                let dragX = leg.x - p1.x;
+                let dragY = leg.y - p1.y;
+                let forwardProjection = dragX * Math.cos(bodyAngle) + dragY * Math.sin(bodyAngle);
+                let lateralProjection = dragX * Math.cos(bodyAngle + (Math.PI / 2) * leg.side) + dragY * Math.sin(bodyAngle + (Math.PI / 2) * leg.side);
+
+                // Если передняя лапа отстает (меньше 6 пикселей спереди от плеча),
+                // тело встает как вкопанное и ждет перестановки.
+                if (leg.isFront && forwardProjection < 6) bodyHalted = true;
+                // Для задних лап лимит отставания больше
+                if (!leg.isFront && forwardProjection < -25) bodyHalted = true;
+                // ИСПРАВЛЕНИЕ: Если пузико наползает на лапу (лапа слишком близко к центру) - тормозим!
+                if (lateralProjection < 26) bodyHalted = true;
+            });
+
+            let actualTargetSpeed = targetSpeed;
+            if (steppingCount > 0) { 
+                actualTargetSpeed *= 0.1; // Почти стоим, пока лапа в воздухе
+            } else if (bodyHalted) { 
+                actualTargetSpeed = 0; // Полная остановка - ждем лапу!
+            } else if (currentSpeed < targetSpeed && targetSpeed > 0.5) { 
+                actualTargetSpeed *= 2.2; // Мощный рывок тела вперед после постановки лап
+            }
+
+            currentSpeed += (actualTargetSpeed - currentSpeed) * 0.2; 
+            
+            if (dist > 25 && !isLicking) {
+                let tAngle = Math.atan2(dy, dx);
+                let diff = tAngle - currentHeadAngle;
+                while (diff < -Math.PI) diff += Math.PI * 2;
+                while (diff > Math.PI) diff -= Math.PI * 2;
+
+                let maxTurn = isEnjoying ? 0.01 : 0.022; 
+                let turnStep = Math.sign(diff) * Math.min(Math.abs(diff) * 0.035, maxTurn);
+                currentHeadAngle += turnStep;
+            }
+
+            if (dist > 5 && currentSpeed > 0.05) {
+                let wiggle = isEnjoying ? 0.8 : (currentSpeed * 0.25);
+                // bodySway — плавное боковое покачивание при смене опорной ноги
+                let sway = currentSpeed > 0.3 ? bodySway * 2.0 : 0;
+                points[0].x += Math.cos(currentHeadAngle) * currentSpeed + Math.cos(currentHeadAngle+Math.PI/2)*(Math.sin(time*2.0)*wiggle + sway);
+                points[0].y += Math.sin(currentHeadAngle) * currentSpeed + Math.sin(currentHeadAngle+Math.PI/2)*(Math.sin(time*2.0)*wiggle + sway);
+            } else {
+                points[0].x += Math.cos(time*0.6) * 0.1;
+                points[0].y += Math.sin(time*0.6) * 0.1;
+            }
+            angles[0] = currentHeadAngle;
+
+            for (let i = 1; i < numSegments; i++) {
+                let pPrev = points[i-1];
+                let pCurr = points[i];
+                
+                let dAx = pPrev.x - pCurr.x;
+                let dAy = pPrev.y - pCurr.y;
+                let targetAngle = Math.atan2(dAy, dAx);
+                
+                let diff = targetAngle - angles[i-1];
+                while (diff < -Math.PI) diff += Math.PI * 2;
+                while (diff > Math.PI) diff -= Math.PI * 2;
+                
+                // ДЕЛАЕМ ТЕЛО ТВЕРДЫМ: 
+                // Жесткость позвоночника повышена. От 0.18 (шея) до 0.06 (хвост).
+                let maxBend = 0.18 - (i / numSegments) * 0.12; 
+                
+                if (diff > maxBend) targetAngle = angles[i-1] + maxBend;
+                if (diff < -maxBend) targetAngle = angles[i-1] - maxBend;
+                
+                // --- АВТОНОМНЫЙ ХВОСТ ---
+                // ТЕПЕРЬ ГНЕТСЯ ВЕСЬ ХВОСТ: Начинаем почти от основания (после задних лап, сегмент 6)
+                if (i > 6) { 
+                    // Линейно наращиваем интенсивность изгиба к кончику
+                    let tailIntensity = (i - 6) / (numSegments - 7); 
+                    let wagMultiplier = currentSpeed < 0.5 ? 0.7 : 0.12; 
+                    
+                    targetAngle += tailWagCurrent * tailIntensity * wagMultiplier;
+                }
+
+                angles[i] = targetAngle; 
+                points[i].x = pPrev.x - Math.cos(angles[i]) * segmentDist;
+                points[i].y = pPrev.y - Math.sin(angles[i]) * segmentDist;
+            }
+
+            let isGroup0Stepping = legs[0].isStepping || legs[3].isStepping;
+            let isGroup1Stepping = legs[1].isStepping || legs[2].isStepping;
+
+            // Покачивание тела: опираемся на группу 0 → наклон вправо, на группу 1 → влево
+            let swayTarget = isGroup0Stepping ? 1.0 : (isGroup1Stepping ? -1.0 : 0.0);
+            bodySway += (swayTarget - bodySway) * 0.06; // Был 0.12, замедлили для эффекта массы 
+
+            legs.forEach(leg => {
+                let p1 = points[leg.seg];
+                let bodyAngle = angles[leg.seg];
+                let idealAngle = bodyAngle + (Math.PI / 2) * leg.side;
+                
+                // Выбрасываем лапу далеко вперед и ШИРОКО в стороны
+                let reachForward = leg.isFront ? 45 : -5;
+                let spreadOut = 65; 
+                
+                let idealX = p1.x + Math.cos(idealAngle) * spreadOut + Math.cos(bodyAngle) * reachForward;
+                let idealY = p1.y + Math.sin(idealAngle) * spreadOut + Math.sin(bodyAngle) * reachForward;
+
+                let d = Math.hypot(idealX - leg.x, idealY - leg.y);
+                
+                let dragX = leg.x - p1.x;
+                let dragY = leg.y - p1.y;
+                let forwardProjection = dragX * Math.cos(bodyAngle) + dragY * Math.sin(bodyAngle);
+                let lateralProjection = dragX * Math.cos(bodyAngle + (Math.PI / 2) * leg.side) + dragY * Math.sin(bodyAngle + (Math.PI / 2) * leg.side);
+                
+                // ИСПРАВЛЕНИЕ: Проверяем, не наступил ли ящер сам себе на ногу (пузико задавило ступню)
+                let bodyCrushed = lateralProjection < 28;
+
+                // ИСПРАВЛЕНИЕ: Меньше топтания на месте
+                if (leg.cooldownTimer > 0) leg.cooldownTimer--;
+
+                // Экстренный шаг: если лапа критически отстала от плеча ИЛИ оказалась под телом
+                let urgentStep = (leg.isFront && forwardProjection < 12) || (!leg.isFront && forwardProjection < -15) || bodyCrushed;
+                
+                // Динамический порог: если разворачиваемся на месте (currentSpeed < 1), 
+                // разрешаем лапам растянуться сильнее (до 100px), чтобы не делать частые мелкие шажки
+                let stepThreshold = 55; // Был 60, теперь лапы чуть ближе из-за короткого тела
+                if (currentSpeed < 1.0) stepThreshold = 105; // Был 120
+
+                let normalStep = (d > stepThreshold || urgentStep) && (targetSpeed > 0.05 || currentSpeed > 0.05) && !isEnjoying && !isLicking;
+                // Форсированный шаг: если лапа критически далеко ИЛИ мы стоим, но лапу задавило
+                let forcedStep = d > 150 || bodyCrushed; // был 120, стал 150 чтобы тянуло до последнего
+                
+                if (!leg.isStepping && (normalStep || forcedStep) && leg.cooldownTimer <= 0) {
+                    let canStep = (leg.groupId === 0 && !isGroup1Stepping) || (leg.groupId === 1 && !isGroup0Stepping);
+                    // Если тело заблокировано (bodyHalted) или ногу задавило, лапа шагает в приоритете
+                    if (canStep || forcedStep || (urgentStep && bodyHalted)) {
+                        leg.isStepping = true;
+                        leg.startX = leg.x;
+                        leg.startY = leg.y;
+                        
+                        let overshoot = 25 + Math.min(targetSpeed, 5) * 6;
+                        let tx = idealX + Math.cos(bodyAngle) * overshoot; 
+                        let ty = idealY + Math.sin(bodyAngle) * overshoot; 
+
+                        // ИСПРАВЛЕНИЕ: Не наступаем на лицо
+                        const headCenterX = points[0].x + Math.cos(currentHeadAngle) * 22;
+                        const headCenterY = points[0].y + Math.sin(currentHeadAngle) * 22;
+                        const distToHead = Math.hypot(tx - headCenterX, ty - headCenterY);
+                        const minHeadDist = 85; // Увеличили с 58, чтобы лапы не лезли в глаза
+                        if (distToHead < minHeadDist) {
+                            const pushAngle = Math.atan2(ty - headCenterY, tx - headCenterX);
+                            tx = headCenterX + Math.cos(pushAngle) * minHeadDist;
+                            ty = headCenterY + Math.sin(pushAngle) * minHeadDist;
+                        }
+
+                        // ИСПРАВЛЕНИЕ: Не наступаем на пузико (для задних лап)
+                        if (!leg.isFront) {
+                            const bellyX = points[leg.seg].x;
+                            const bellyY = points[leg.seg].y;
+                            const distToBelly = Math.hypot(tx - bellyX, ty - bellyY);
+                            const minBellyDist = 52; 
+
+                            if (distToBelly < minBellyDist) {
+                                const pushAngle = Math.atan2(ty - bellyY, tx - bellyX);
+                                tx = bellyX + Math.cos(pushAngle) * minBellyDist;
+                                ty = bellyY + Math.sin(pushAngle) * minBellyDist;
+                            }
+                        }
+
+                        leg.targetX = tx;
+                        leg.targetY = ty;
+                        
+                        leg.stepTime = 0; 
+                        
+                        // Рандомизируем углы пальцев для следующего приземления
+                        for(let t=0; t<4; t++) {
+                            // Очень легкое смещение от -0.075 до +0.075 радиан (было 0.2)
+                            leg.toeOffsets[t] = (Math.random() - 0.5) * 0.15;
+                        }
+                    }
+                }
+                
+                if (leg.isStepping) {
+                    leg.stepTime += 0.06 + (targetSpeed * 0.015); // Был 0.15 + 0.02. Замедлили перенос лапы.
+                    if (leg.stepTime >= 1) { 
+                        leg.stepTime = 1; 
+                        leg.isStepping = false; 
+                        leg.cooldownTimer = 50; // Было 35. Даем лапе дольше постоять.
+                    }
+                    let t = leg.stepTime;
+                    let ease = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+                    leg.x = leg.startX + (leg.targetX - leg.startX) * ease;
+                    leg.y = leg.startY + (leg.targetY - leg.startY) * ease;
+                }
+            });
+
+            // --- РЕНДЕР ---
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Обновление еды и расчет слоев
+            for (let i = foods.length - 1; i >= 0; i--) {
+                let f = foods[i];
+                
+                // Авто-побег через 5 секунд
+                if (!f.flying && (time - f.birth) > 5.0) {
+                    f.flying = true;
+                }
+
+                if (f.flying) {
+                    f.y -= 6; 
+                    f.x += Math.sin(time * 15 + f.birth) * 4;
+                    // Удаление улетевшей еды
+                    if (f.y < -50) {
+                        foods.splice(i, 1);
+                        continue;
+                    }
+                }
+
+                // Динамическое переключение слоев: "на передний план", если вылетел за пределы тела
+                if (!f.isOver && f.flying) {
+                    let isTouching = false;
+                    for (let j = 0; j < numSegments; j++) {
+                        let r = Math.max(baseRadius * (1 - Math.pow(j/numSegments, 1.4)), 2);
+                        let bellyHump = Math.sin(Math.pow(j/(numSegments-1), 0.7) * Math.PI) * 22;
+                        r += bellyHump;
+                        if (j < 4) r *= (0.75 + (j/4)*0.25);
+                        if (j > 5) r *= (1.0 - Math.min(1.0, (j-5)/3.0) * 0.5);
+
+                        let dx = f.x - points[j].x;
+                        let dy = f.y - points[j].y;
+                        if (Math.hypot(dx, dy) < r + 15) { 
+                            isTouching = true; break; 
+                        }
+                    }
+                    if (!isTouching) f.isOver = true;
+                }
+            }
+
+            function drawBug(f, i) {
+                if (!isLicking || i !== lickedFoodIndex || lickTimer < 0.4 || f.flying) {
+                    // Тело "мушки"
+                    ctx.beginPath(); ctx.arc(f.x, f.y, 8, 0, Math.PI*2);
+                    ctx.fillStyle = '#f59e0b'; ctx.shadowColor = '#fcd34d'; ctx.shadowBlur = 12; ctx.fill();
+                    
+                    // Крылышки
+                    let flapSpeed = f.flying ? 35 : 12;
+                    let flapAngle = Math.sin(time * flapSpeed + f.birth) * 0.6;
+                    
+                    ctx.beginPath();
+                    ctx.ellipse(f.x - 8, f.y - 2, 8, 4, -Math.PI/6 + flapAngle, 0, Math.PI*2);
+                    ctx.ellipse(f.x + 8, f.y - 2, 8, 4, Math.PI/6 - flapAngle, 0, Math.PI*2);
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+                    ctx.fill();
+                    
+                    ctx.shadowBlur = 0;
+                }
+            }
+
+            // Жуки теперь всегда рендерятся поверх всех слоев (на переднем стекле)
+
+            ctx.save();
+            ctx.translate(canvas.width/2, canvas.height/2); 
+            ctx.scale(visualScale, visualScale); 
+            ctx.translate(-canvas.width/2, -canvas.height/2);
+            
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.12)'; 
+            ctx.shadowBlur = 15; 
+            ctx.shadowOffsetY = 8;
+
+            drawGills();
+            legs.forEach(leg => drawLimbBase(leg));
+            
+            // --- ПРЕДРАСЧЕТ РАДИУСОВ (АНАТОМИЯ) ---
+            // Чтобы везде применять правильную форму тела
+            segR = [];
+            for (let i = 0; i < numSegments; i++) {
+                let breath = Math.sin(time*1.5 + i*0.1) * 0.6;
+                let r = Math.max(baseRadius * (1 - Math.pow(i/numSegments, 1.4)), 2);
+                
+                // ГОРБ ПУЗИКА: Смещен вперед (пик на i/numSegments ≈ 0.25)
+                // Уменьшили ширину на 15% (было 26, стало 22)
+                let bellyHump = Math.sin(Math.pow(i/(numSegments-1), 0.7) * Math.PI) * 22;
+                r += bellyHump;
+                
+                // УТОНЧЕНИЕ ШЕИ
+                if (i < 4) { r *= (0.75 + (i/4)*0.25); }
+                
+                // РАЗДЕЛЕНИЕ ТЕЛА И ХВОСТА: Резкое сужение СРАЗУ (теперь сегмент 5)
+                if (i > 5) { 
+                    // Хвост быстро становится тоньше, начиная с 5 сегмента
+                    let tailPinch = 1.0 - Math.min(1.0, (i - 5) / 3.0) * 0.5; 
+                    r *= tailPinch;
+                }
+                
+                segR.push(r + breath);
+            }
+
+            // ПРОХОД 0.5: Крокодильи засечки (Шипы по бокам) - ТЕПЕРЬ ПОД ТЕЛОМ
+            for (let i = 1; i < numSegments - 3; i++) {
+                let r = segR[i];
+                let nx = Math.cos(angles[i]+Math.PI/2);
+                let ny = Math.sin(angles[i]+Math.PI/2);
+                
+                let spikeH = 4 + Math.sin((i/(numSegments-1))*Math.PI)*7; 
+                let spikeW = 5 + Math.sin((i/(numSegments-1))*Math.PI)*5;
+
+                for(let side of [-1, 1]) {
+                    ctx.beginPath();
+                    // Вдавливаем основание МАКСИМАЛЬНО ГЛУБОКО (r - 6), чтобы не было щелей при изгибе
+                    // Так как они теперь ПОД телом, их изнанка будет скрыта кожей.
+                    let bx = points[i].x + nx * (r - 6) * side;
+                    let by = points[i].y + ny * (r - 6) * side;
+                    
+                    ctx.moveTo(bx - Math.cos(angles[i]) * spikeW, by - Math.sin(angles[i]) * spikeW);
+                    let tipX = bx + nx * spikeH * side;
+                    let tipY = by + ny * spikeH * side;
+                    ctx.lineTo(tipX, tipY);
+                    ctx.lineTo(bx + Math.cos(angles[i]) * spikeW, by + Math.sin(angles[i]) * spikeW);
+                    
+                    let grd = ctx.createLinearGradient(bx, by, tipX, tipY);
+                    grd.addColorStop(0, colorBody); 
+                    grd.addColorStop(1, colorSpikes); 
+                    ctx.fillStyle = grd; 
+                    ctx.fill();
+                }
+            }
+
+
+            // ПРОХОД 0.75: Цельный гладкий хвост (без кругов-сегментов) - Начинается от задних лап (сегмент 6)
+            ctx.beginPath();
+            let tailStartIdx = 6; 
+            
+            // Правая сторона хвоста
+            for (let i = tailStartIdx; i < numSegments; i++) {
+                let nx = Math.cos(angles[i]+Math.PI/2);
+                let ny = Math.sin(angles[i]+Math.PI/2);
+                let r = segR[i];
+                
+                if (i === numSegments - 1) {
+                    let tailAngle = angles[i] + Math.PI;
+                    let w = (r + 1.5) * 0.55; 
+                    ctx.lineTo(points[i].x + nx * w, points[i].y + ny * w);
+                    let tipX = points[i].x + Math.cos(tailAngle)*7;
+                    let tipY = points[i].y + Math.sin(tailAngle)*7;
+                    ctx.quadraticCurveTo(tipX, tipY, points[i].x - nx * w, points[i].y - ny * w);
+                } else {
+                    // Плавно ведем линию по боку хвоста
+                    ctx.lineTo(points[i].x + nx * r, points[i].y + ny * r);
+                }
+            }
+            // Левая сторона хвоста
+            for (let i = numSegments - 2; i >= tailStartIdx; i--) {
+                let nx = Math.cos(angles[i]+Math.PI/2);
+                let ny = Math.sin(angles[i]+Math.PI/2);
+                let r = segR[i];
+                ctx.lineTo(points[i].x - nx * r, points[i].y - ny * r);
+            }
+            // Линейный градиент для всего хвоста целиком
+            let tailBase = points[tailStartIdx];
+            let tailTip = points[numSegments - 1];
+            let tipGrd = ctx.createLinearGradient(tailBase.x, tailBase.y, tailTip.x, tailTip.y);
+            tipGrd.addColorStop(0, colorBody);
+            tipGrd.addColorStop(1, `hsl(${h}, ${s}%, ${l * 0.6}%)`); 
+            ctx.fillStyle = tipGrd; 
+            ctx.fill();
+
+
+            // ПРОХОД 1: Темное тело
+            for (let i = numSegments - 1; i >= 0; i--) {
+                ctx.beginPath(); ctx.arc(points[i].x, points[i].y, segR[i], 0, Math.PI * 2); 
+                
+                let t = Math.max(0, Math.min(1, i / (numSegments - 1))); 
+                let lCenterAdj = l + 5 - (15 * t); 
+                let lEdgeAdj = l - 5 - (15 * t);   
+                
+                let grd = ctx.createRadialGradient(
+                    points[i].x - segR[i]*0.3, points[i].y - segR[i]*0.3, segR[i]*0.1, 
+                    points[i].x, points[i].y, segR[i]
+                );
+                grd.addColorStop(0, `hsl(${h}, ${s}%, ${lCenterAdj}%)`);
+                grd.addColorStop(1, `hsl(${h}, ${s}%, ${lEdgeAdj}%)`);
+
+                if (i <= 6) { ctx.fillStyle = grd; ctx.fill(); }
+            }
+            
+            ctx.shadowColor = 'transparent';
+
+            // ПРОХОД 2: Цветное пузико
+            for (let i = numSegments - 13; i >= 0; i--) {
+                ctx.beginPath(); ctx.arc(points[i].x, points[i].y, segR[i] * 0.7, 0, Math.PI * 2); 
+                
+                let t = Math.max(0, Math.min(1, i / (numSegments - 1))); 
+                let lCenterAdj = (l + 25) + 10 - (20 * t); 
+                let lEdgeAdj = (l + 25) - 10 - (20 * t); 
+                
+                let grd = ctx.createRadialGradient(
+                    points[i].x, points[i].y, 0, 
+                    points[i].x, points[i].y, segR[i] * 0.7
+                );
+                grd.addColorStop(0, `hsl(${h}, ${s}%, ${lCenterAdj}%)`);
+                grd.addColorStop(1, `hsl(${h}, ${s}%, ${lEdgeAdj}%)`);
+
+                ctx.fillStyle = grd;
+                ctx.fill();
+            }
+
+            // ПРОХОД 4: Размытое свечение
+            ctx.beginPath();
+            for (let i = numSegments - 13; i > 1; i--) {
+                if (i === numSegments - 13) ctx.moveTo(points[i].x, points[i].y);
+                else ctx.lineTo(points[i].x, points[i].y);
+            }
+            let breathPulse = 0.18 + Math.sin(time * 1.5) * 0.05;
+            let glowWidth = isEnjoying ? 26 : (18 + currentSpeed * 1.5);
+            ctx.strokeStyle = colorBelly.replace(')', `, ${breathPulse})`).replace('hsl', 'hsla');
+            ctx.lineWidth = glowWidth;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.shadowColor = colorBelly.replace(')', ', 0.4)').replace('hsl', 'hsla');
+            ctx.shadowBlur = isEnjoying ? 28 : 18;
+            ctx.stroke();
+            ctx.shadowColor = 'transparent';
+            ctx.shadowBlur = 0;
+            
+            drawThoughtBubbleConnectors();
+            
+            // ПРОХОД 5: Лапки со сплющивающимися подушечками (ТЕПЕРЬ ПОД ГОЛОВОЙ)
+            legs.forEach(leg => drawFootPads(leg));
+
+            drawHeadAndEyes();
+            
+            // ПРОХОД 6: Запотевшее стекло от дыхания (самый верхний слой)
+            breaths.forEach((b, i) => {
+                b.life -= 0.015;
+                if (b.life <= 0) {
+                    breaths.splice(i, 1);
+                } else {
+                    let r = 10 + (1 - b.life) * 35; // Расширяется
+                    let opacity = b.life * 0.15; // Очень легкий туман
+                    let grd = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, r);
+                    grd.addColorStop(0, `rgba(255, 255, 255, ${opacity})`);
+                    grd.addColorStop(1, `rgba(255, 255, 255, 0)`);
+                    
+                    ctx.beginPath();
+                    ctx.arc(b.x, b.y, r, 0, Math.PI*2);
+                    ctx.fillStyle = grd;
+                    ctx.fill();
+                }
+            });
+
+            drawThoughtBubbleMain();
+
+            ctx.restore();
+
+            // РЕНДЕР ПАСС 2: Все жуки рисуются поверх ящерицы
+            foods.forEach((f, idx) => drawBug(f, idx));
+
+            requestAnimationFrame(update);
+        }
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            visualScale = 1; 
+            if (lizardEngineStarted) updateLizardDimensions();
+        }
+
+        window.addEventListener('resize', resize);
+        resize();
+        
+        update(); 
+
+        } // Конец initLizardEngine
+
+        bootGame();
+    </script>
+</body>
+</html>
