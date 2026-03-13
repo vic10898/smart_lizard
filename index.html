@@ -809,8 +809,14 @@
 
             // --- УПРАВЛЕНИЕ UI И ВЗАИМОДЕЙСТВИЕМ (ВНУТРИ ДВИЖКА) ---
 
-            actionBtn.onclick = (e) => {
+            actionBtn.onclick = async (e) => {
                 e.stopPropagation();
+                
+                // Запрос прав на акселерометр (повторно, если не дали ранее)
+                if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+                    try { await DeviceMotionEvent.requestPermission(); } catch (err) {}
+                }
+
                 if (appState === 'roam') {
                     appState = 'feed';
                     bugsLeft = 5;
@@ -912,9 +918,9 @@
 
             // --- ДЕТЕКЦИЯ ТРЯСКИ ---
             let lastX = 0, lastY = 0, lastZ = 0;
-            let shakeThreshold = 15.0; // Порог чувствительности
+            let shakeThreshold = 10.0; // Сделали чуть чувствительнее (было 15)
 
-            function handleMotion(event) {
+            async function handleMotion(event) {
                 if (!lizardEngineStarted || appState !== 'roam') return;
                 
                 const acc = event.accelerationIncludingGravity;
@@ -924,21 +930,24 @@
                 let deltaY = Math.abs(acc.y - lastY);
                 let deltaZ = Math.abs(acc.z - lastZ);
 
+                // Если тряска по двум осям превышает порог
                 if ((deltaX > shakeThreshold && deltaY > shakeThreshold) || 
                     (deltaX > shakeThreshold && deltaZ > shakeThreshold) || 
                     (deltaY > shakeThreshold && deltaZ > shakeThreshold)) {
                     
-                    // ТРЯСКА ОБНАРУЖЕНА!
                     if (startleTimer <= 0) {
-                        startleTimer = 60; // Испуг
+                        startleTimer = 120; // Испуг на 2 секунды
+                        isEnjoying = false;
+                        pleasure = 0;
                         
-                        // Рывок в центр экрана
+                        // Рывок строго в центр логического экрана
                         wanderTarget.x = window.innerWidth / 2;
                         wanderTarget.y = window.innerHeight / 2;
                         
                         moveState = 'darting';
-                        targetSpeed = 8; // Высокая скорость
+                        targetSpeed = 10; // Реально быстрый рывок
                         interestTimer = 0;
+                        ignoreTimer = 60; // Не отвлекаться на мышь сразу
                     }
                 }
 
@@ -1684,7 +1693,10 @@
                 }
             } else if (!isLicking) {
                 if (isEnjoying) { targetSpeed = 0; } 
-                else if (startleTimer > 0) { targetSpeed = 4.5; } 
+                else if (startleTimer > 0) { 
+                    // Если скорость уже высокая (от рывка), не сбрасываем её
+                    if (targetSpeed < 4.5) targetSpeed = 4.5; 
+                } 
                 else {
                     let distToMouse = Math.hypot(points[0].x - mouseX, points[0].y - mouseY);
                     if (ignoreTimer > 0) ignoreTimer--;
@@ -1720,8 +1732,8 @@
                                 wanderTarget.x = points[0].x + Math.cos(currentHeadAngle + turn) * 350;
                                 wanderTarget.y = points[0].y + Math.sin(currentHeadAngle + turn) * 350;
                             }
-                            wanderTarget.x = Math.max(120, Math.min(canvas.width - 120, wanderTarget.x));
-                            wanderTarget.y = Math.max(120, Math.min(canvas.height - 120, wanderTarget.y));
+                            wanderTarget.x = Math.max(120, Math.min(window.innerWidth - 120, wanderTarget.x));
+                            wanderTarget.y = Math.max(120, Math.min(window.innerHeight - 120, wanderTarget.y));
                         }
                     }
                 }
