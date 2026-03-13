@@ -786,6 +786,14 @@
             ctx.lineCap = 'round';
             ctx.stroke();
 
+            // ДОПОЛНИТЕЛЬНОЕ СКРУГЛЕНИЕ ДЛЯ МОБИЛОК (чтобы не было острых углов при градиентах)
+            ctx.fillStyle = grd;
+            [ [sx, sy], [kneeX, kneeY], [px, py] ].forEach(([cx, cy]) => {
+                ctx.beginPath();
+                ctx.arc(cx, cy, 10, 0, Math.PI * 2); 
+                ctx.fill();
+            });
+
             leg.footAngle = Math.atan2(py - kneeY, px - kneeX);
         }
 
@@ -1903,8 +1911,11 @@
         }
 
         function resize() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = window.innerWidth * dpr;
+            canvas.height = window.innerHeight * dpr;
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0); // Масштабируем контекст, чтобы логические координаты (x, y) работали как раньше
+            
             visualScale = 1; 
             if (lizardEngineStarted) updateLizardDimensions();
         }
