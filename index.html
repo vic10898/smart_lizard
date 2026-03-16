@@ -283,7 +283,34 @@
             position: relative;
             overflow: hidden;
             border: 2px solid #f1f5f9;
+            animation: breathe 3s ease-in-out infinite;
         }
+        @keyframes breathe {
+            0%, 100% { transform: scale(1); box-shadow: inset -20px -20px 50px rgba(0,0,0,0.1), 0 20px 40px rgba(0,0,0,0.1); }
+            50% { transform: scale(1.02); box-shadow: inset -25px -25px 60px rgba(0,0,0,0.12), 0 25px 50px rgba(0,0,0,0.15); }
+        }
+        #egg-container.warming #egg-visual {
+            box-shadow: 
+                inset -20px -20px 50px rgba(0,0,0,0.1),
+                0 0 30px rgba(255, 150, 50, 0.4),
+                0 20px 40px rgba(0,0,0,0.1);
+            border-color: rgba(255, 150, 50, 0.3);
+        }
+        .heat-particle {
+            position: absolute;
+            background: rgba(255, 100, 0, 0.6);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 10;
+            filter: blur(2px);
+            animation: floatUp 1.5s ease-out forwards;
+        }
+        @keyframes floatUp {
+            0% { transform: translateY(0) scale(1); opacity: 0; }
+            20% { opacity: 0.8; }
+            100% { transform: translateY(-100px) scale(0); opacity: 0; }
+        }
+
         #egg-hint {
             margin-top: 40px;
             font-size: 18px;
@@ -333,7 +360,7 @@
         <div id="egg-container">
             <div id="egg-visual"></div>
         </div>
-        <div id="egg-hint">Прижми ладонь и согрей яйцо...</div>
+        <div id="egg-hint">Прикоснись и согрей яйцо...</div>
         
         <div id="egg-dna-info">
             <div id="dna-fact-text">🧬 Считывание ДНК...</div>
@@ -550,6 +577,7 @@
             const startWarming = () => {
                 if (isWarming) return;
                 isWarming = true;
+                eggContainer.classList.add('warming');
                 dnaInfo.style.opacity = '1';
                 eggWarmInterval = setInterval(() => {
                     gameState.eggWarmProgress += 100; // Каждые 100мс
@@ -557,6 +585,9 @@
                     // Тряска яйца
                     const shake = (gameState.eggWarmProgress / WARM_TIME_REQUIRED) * 8 + 2; 
                     eggContainer.style.transform = `translate(${(Math.random()-0.5)*shake}px, ${(Math.random()-0.5)*shake}px) rotate(${(Math.random()-0.5)*shake}deg)`;
+
+                    // Частички тепла
+                    if (Math.random() > 0.6) createHeatParticle();
 
                     // Обновление фактов
                     const factIdx = Math.floor((gameState.eggWarmProgress / WARM_TIME_REQUIRED) * dnaFacts.length);
@@ -585,6 +616,7 @@
 
             const stopWarming = () => {
                 isWarming = false;
+                eggContainer.classList.remove('warming');
                 if (dnaInfo) dnaInfo.style.opacity = '0';
                 if (eggWarmInterval) {
                     clearInterval(eggWarmInterval);
@@ -637,6 +669,22 @@
             
             svg.appendChild(polyline);
             eggVisual.appendChild(svg);
+        }
+
+        function createHeatParticle() {
+            const particle = document.createElement('div');
+            particle.className = 'heat-particle';
+            const size = 4 + Math.random() * 6;
+            const x = Math.random() * 80 + 10;
+            const y = 80 + Math.random() * 20;
+            
+            particle.style.width = `${size}px`;
+            particle.style.height = `${size}px`;
+            particle.style.left = `${x}%`;
+            particle.style.top = `${y}%`;
+            
+            eggContainer.appendChild(particle);
+            setTimeout(() => particle.remove(), 1500);
         }
 
         function hatch() {
@@ -872,7 +920,7 @@
                         wanderTarget.x = Math.max(120, Math.min(canvas.width - 120, wanderTarget.x));
                         wanderTarget.y = Math.max(120, Math.min(canvas.height - 120, wanderTarget.y));
                         moveState = 'darting';
-                        targetSpeed = 7; 
+                        targetSpeed = 8.5; 
                         interestTimer = 0;
                     } else {
                         interestTimer = 180;
@@ -880,7 +928,7 @@
                         wanderTarget.x = x;
                         wanderTarget.y = y;
                         moveState = 'darting';
-                        targetSpeed = 4.5; 
+                        targetSpeed = 5.5; 
                     }
                 } 
                 else if (appState === 'feed') {
@@ -945,7 +993,7 @@
                         wanderTarget.y = window.innerHeight / 2;
                         
                         moveState = 'darting';
-                        targetSpeed = 10; // Реально быстрый рывок
+                        targetSpeed = 12; // Реально быстрый рывок
                         interestTimer = 0;
                         ignoreTimer = 60; // Не отвлекаться на мышь сразу
                     }
@@ -1516,7 +1564,7 @@
                     leftEyeBlink = 0.01; rightEyeBlink = 0.01; // Обычное моргание
                     leftBlinkSpeed = speed; rightBlinkSpeed = speed;
                 }
-                nextBlinkTime = time + 1.5 + Math.random() * 5;
+                nextBlinkTime = time + 1.0 + Math.random() * 3.5;
             }
 
             if (rightBlinkDelay > 0) {
@@ -1615,11 +1663,11 @@
                 // Если он кайфует, хвост расслаблен (ближе к нулю)
                 let maxWag = isEnjoying ? 0.3 : 1.2;
                 tailWagTarget = (Math.random() - 0.5) * maxWag;
-                // Замираем в этой позе от 1.5 до 4.5 секунд
-                tailWagTimer = 90 + Math.random() * 180;
+                // Замираем в этой позе от 1.0 до 3.0 секунд
+                tailWagTimer = 60 + Math.random() * 120;
             }
             // Плавное, но достаточно резкое движение хвоста к новой позе (эффект мышечного сокращения)
-            tailWagCurrent += (tailWagTarget - tailWagCurrent) * 0.15;
+            tailWagCurrent += (tailWagTarget - tailWagCurrent) * 0.2;
 
             // Генерация дыхания (запотевшее стекло)
             let prevBreathCycle = Math.sin((time - 0.05) * 1.5);
@@ -1679,7 +1727,7 @@
                     if (minDist < 110) { 
                         isLicking = true; lickTimer = 0; lickedFoodIndex = cIdx;
                     } else {
-                        wanderTarget.x = closestFood.x; wanderTarget.y = closestFood.y; targetSpeed = 3.5; 
+                        wanderTarget.x = closestFood.x; wanderTarget.y = closestFood.y; targetSpeed = 4.5; 
                     }
                 } else { 
                     // Если все улетают, ящерица останавливается, но продолжает смотреть на ближайшего улетающего
@@ -1704,7 +1752,7 @@
                         if (Math.random() < 0.02) { interestTimer = 250 + Math.random() * 150; moveState = 'crawling'; }
                     }
                     if (interestTimer > 0) {
-                        interestTimer--; wanderTarget.x = mouseX; wanderTarget.y = mouseY; targetSpeed = 2.2; 
+                        interestTimer--; wanderTarget.x = mouseX; wanderTarget.y = mouseY; targetSpeed = 3.0; 
                         if (interestTimer <= 0) { 
                             ignoreTimer = 500; moveState = 'idle'; stateTimer = 150; 
                             wanderTarget.x = points[0].x + Math.cos(currentHeadAngle) * 150;
@@ -1721,13 +1769,13 @@
                                 wanderTarget.y = points[0].y + Math.sin(currentHeadAngle + slightTurn) * 150;
                             }
                             else if (r < 0.95) { 
-                                moveState = 'crawling'; stateTimer = 150 + Math.random() * 100; targetSpeed = 0.8; 
+                                moveState = 'crawling'; stateTimer = 100 + Math.random() * 100; targetSpeed = 1.8; 
                                 let turn = (Math.random() - 0.5) * 1.5;
                                 wanderTarget.x = points[0].x + Math.cos(currentHeadAngle + turn) * 250;
                                 wanderTarget.y = points[0].y + Math.sin(currentHeadAngle + turn) * 250;
                             }
                             else { 
-                                moveState = 'darting'; stateTimer = 60; targetSpeed = 2.8; 
+                                moveState = 'darting'; stateTimer = 60; targetSpeed = 4.5; 
                                 let turn = (Math.random() - 0.5) * 0.5;
                                 wanderTarget.x = points[0].x + Math.cos(currentHeadAngle + turn) * 350;
                                 wanderTarget.y = points[0].y + Math.sin(currentHeadAngle + turn) * 350;
@@ -1777,7 +1825,7 @@
                 actualTargetSpeed *= 2.2; // Мощный рывок тела вперед после постановки лап
             }
 
-            currentSpeed += (actualTargetSpeed - currentSpeed) * 0.2; 
+            currentSpeed += (actualTargetSpeed - currentSpeed) * 0.25; 
             
             if (dist > 25 && !isLicking) {
                 let tAngle = Math.atan2(dy, dx);
@@ -1785,8 +1833,8 @@
                 while (diff < -Math.PI) diff += Math.PI * 2;
                 while (diff > Math.PI) diff -= Math.PI * 2;
 
-                let maxTurn = isEnjoying ? 0.01 : 0.022; 
-                let turnStep = Math.sign(diff) * Math.min(Math.abs(diff) * 0.035, maxTurn);
+                let maxTurn = isEnjoying ? 0.015 : 0.035; 
+                let turnStep = Math.sign(diff) * Math.min(Math.abs(diff) * 0.05, maxTurn);
                 currentHeadAngle += turnStep;
             }
 
@@ -1931,7 +1979,7 @@
                 }
                 
                 if (leg.isStepping) {
-                    leg.stepTime += 0.06 + (targetSpeed * 0.015); // Был 0.15 + 0.02. Замедлили перенос лапы.
+                    leg.stepTime += 0.08 + (targetSpeed * 0.025); // Был 0.15 + 0.02. Замедлили перенос лапы.
                     if (leg.stepTime >= 1) { 
                         leg.stepTime = 1; 
                         leg.isStepping = false; 
