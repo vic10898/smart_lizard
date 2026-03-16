@@ -1138,15 +1138,18 @@
             ctx.stroke();
             
             // Добавляем округлые суставы ("шарниры") для идеальной гладкости на мобильных устройствах
-            ctx.fillStyle = grd;
-            [ [sx, sy], [kneeX, kneeY], [px, py] ].forEach(pos => {
+            // Используем чуть больший радиус (11) для перекрытия 20px линии и конкретные цвета
+            const jointColors = [`hsl(${h}, ${s}%, ${l * 0.5}%)`, colorBody, colorLegs];
+            [ [sx, sy], [kneeX, kneeY], [px, py] ].forEach((pos, idx) => {
+                ctx.fillStyle = jointColors[idx];
                 ctx.beginPath();
-                ctx.arc(pos[0], pos[1], 10, 0, Math.PI * 2); // Радиус 10 при lineWidth 20
+                ctx.arc(pos[0], pos[1], 11, 0, Math.PI * 2); 
                 ctx.fill();
             });
 
             leg.footAngle = Math.atan2(py - kneeY, px - kneeX);
         }
+
 
 
         // КОШАЧЬИ ПОДУШЕЧКИ ЛАП С УСИЛЕННОЙ АНИМАЦИЕЙ ПРИСОСКИ
