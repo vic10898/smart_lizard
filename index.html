@@ -801,29 +801,8 @@
                 emojiSet: ['🐛', '🦎', '❤️', '💤', '🦟', '🍃', '☀️', '🌈', '💧', '🍖']
             };
 
-            const isMobile = (function() {
-                try {
-                    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
-                           (navigator.maxTouchPoints > 0) || 
-                           (window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
-                } catch(e) { return false; }
-            })();
-
-            let stallTimer = 0;
-
             let isLicking = false, lickTimer = 0, lickedFoodIndex = -1;
             let breaths = []; 
-
-            // СВИНГИНГ (ВИСЕНИЕ НА ЛАПЕ)
-            let isHanging = false;
-            let hangLegIdx = 0; // Какая лапа держит (обычно 0 или 1 - передние)
-            let hangPivot = { x: 0, y: 0 };
-            let hangTheta = 0; // Угол маятника
-            let hangVel = 0;   // Скорость маятника
-            let hangLen = 140; // Длина маятника (линия от лапы до центра масс)
-            let hangGravity = 0.08;
-            let hangDamping = 0.985;
-            let hangDuration = 0;
 
             function updateLizardDimensions() {
                 let stageScale = (gameState.stage === 'BABY') ? 0.6 : 1.0;
@@ -860,10 +839,10 @@
             }
 
             let legs = [
-                { seg: 3, side: 1, isFront: true, x: 0, y: 0, startX: 0, startY: 0, targetX: 0, targetY: 0, kneeX: 0, kneeY: 0, stepTime: 0, isStepping: false, groupId: 0, toeOffsets: [0,0,0,0], cooldownTimer: 0 },
-                { seg: 3, side: -1, isFront: true, x: 0, y: 0, startX: 0, startY: 0, targetX: 0, targetY: 0, kneeX: 0, kneeY: 0, stepTime: 0, isStepping: false, groupId: 1, toeOffsets: [0,0,0,0], cooldownTimer: 0 },
-                { seg: 6, side: 1, isFront: false, x: 0, y: 0, startX: 0, startY: 0, targetX: 0, targetY: 0, kneeX: 0, kneeY: 0, stepTime: 0, isStepping: false, groupId: 1, toeOffsets: [0,0,0,0], cooldownTimer: 0 }, 
-                { seg: 6, side: -1, isFront: false, x: 0, y: 0, startX: 0, startY: 0, targetX: 0, targetY: 0, kneeX: 0, kneeY: 0, stepTime: 0, isStepping: false, groupId: 0, toeOffsets: [0,0,0,0], cooldownTimer: 0 } 
+                { seg: 3, side: 1, isFront: true, x: 0, y: 0, startX: 0, startY: 0, targetX: 0, targetY: 0, stepTime: 0, isStepping: false, groupId: 0, toeOffsets: [0,0,0,0], cooldownTimer: 0 },
+                { seg: 3, side: -1, isFront: true, x: 0, y: 0, startX: 0, startY: 0, targetX: 0, targetY: 0, stepTime: 0, isStepping: false, groupId: 1, toeOffsets: [0,0,0,0], cooldownTimer: 0 },
+                { seg: 6, side: 1, isFront: false, x: 0, y: 0, startX: 0, startY: 0, targetX: 0, targetY: 0, stepTime: 0, isStepping: false, groupId: 1, toeOffsets: [0,0,0,0], cooldownTimer: 0 }, 
+                { seg: 6, side: -1, isFront: false, x: 0, y: 0, startX: 0, startY: 0, targetX: 0, targetY: 0, stepTime: 0, isStepping: false, groupId: 0, toeOffsets: [0,0,0,0], cooldownTimer: 0 } 
             ];
 
             legs.forEach(leg => {
@@ -929,16 +908,6 @@
                 }
 
                 if (appState === 'roam') {
-                    // Если ящер висит, клик по нему заставляет его спрыгнуть
-                    if (isHanging) {
-                        let dx = points[0].x - x;
-                        let dy = points[0].y - y;
-                        if (Math.sqrt(dx*dx + dy*dy) < 150) {
-                            isHanging = false;
-                            return;
-                        }
-                    }
-
                     let dx = points[0].x - x;
                     let dy = points[0].y - y;
                     let dist = Math.sqrt(dx*dx + dy*dy);
@@ -997,66 +966,36 @@
 
             // --- ДЕТЕКЦИЯ ТРЯСКИ ---
             let lastX = 0, lastY = 0, lastZ = 0;
-            let shakeThreshold = 18.0; // Еще выше, чтобы точно не было случайных триггеров на десктопе
+            let shakeThreshold = 10.0; // Сделали чуть чувствительнее (было 15)
 
             async function handleMotion(event) {
                 if (!lizardEngineStarted || appState !== 'roam') return;
                 
                 const acc = event.accelerationIncludingGravity;
-                if (!acc || isNaN(acc.x) || isNaN(acc.y) || isNaN(acc.z)) return;
+                if (!acc) return;
 
-                let deltaX = Math.abs(acc.x - (lastX || 0));
-                let deltaY = Math.abs(acc.y - (lastY || 0));
-                let deltaZ = Math.abs(acc.z - (lastZ || 0));
+                let deltaX = Math.abs(acc.x - lastX);
+                let deltaY = Math.abs(acc.y - lastY);
+                let deltaZ = Math.abs(acc.z - lastZ);
 
                 // Если тряска по двум осям превышает порог
                 if ((deltaX > shakeThreshold && deltaY > shakeThreshold) || 
                     (deltaX > shakeThreshold && deltaZ > shakeThreshold) || 
                     (deltaY > shakeThreshold && deltaZ > shakeThreshold)) {
                     
-                    if (startleTimer <= 0 && !isHanging) {
-                        // Только на мобильных (или тач-устройствах) разрешаем висеть
-                        if (!isMobile) {
-                            // На десктопе просто убегаем
-                            startleTimer = 120;
-                            wanderTarget.x = window.innerWidth / 2;
-                            wanderTarget.y = window.innerHeight / 2;
-                            moveState = 'darting';
-                            targetSpeed = 12;
-                            return;
-                        }
-
-                        startleTimer = 120;
+                    if (startleTimer <= 0) {
+                        startleTimer = 120; // Испуг на 2 секунды
                         isEnjoying = false;
                         pleasure = 0;
                         
-                        // ПЕРЕХОД В РЕЖИМ ВИСЕНИЯ
-                        console.log("Entering Hanging Mode");
-                        isHanging = true;
-                        hangDuration = 300; // Висеть ~5 секунд или пока не затихнет
-                        hangLegIdx = Math.random() > 0.5 ? 0 : 1;
-                        hangPivot.x = legs[hangLegIdx].x;
-                        hangPivot.y = legs[hangLegIdx].y;
+                        // Рывок строго в центр логического экрана
+                        wanderTarget.x = window.innerWidth / 2;
+                        wanderTarget.y = window.innerHeight / 2;
                         
-                        // Начальный импульс от тряски
-                        let shakeImpulse = (deltaX + deltaY) * 0.015;
-                        hangVel = (Math.random() > 0.5 ? 1 : -1) * shakeImpulse;
-                        
-                        // Вычисляем начальный угол относительно вертикали
-                        let dx = points[0].x - hangPivot.x;
-                        let dy = points[0].y - hangPivot.y;
-                        if (isNaN(dx) || isNaN(dy)) { dx = 0; dy = 100; }
-                        hangTheta = Math.atan2(dx, dy);
-                        hangLen = Math.hypot(dx, dy);
-                        if (hangLen < 10) hangLen = 140; // Guard against zero distance
-                        
-                        moveState = 'idle';
-                        targetSpeed = 0;
-                    } else if (isHanging) {
-                        // Если уже висит, тряска добавляет скорости раскачиванию
-                        let shakeImpulse = (deltaX + deltaY) * 0.02;
-                        if (!isNaN(shakeImpulse)) hangVel += (Math.random() > 0.5 ? 1 : -1) * shakeImpulse;
-                        hangDuration = Math.max(hangDuration, 150);
+                        moveState = 'darting';
+                        targetSpeed = 12; // Реально быстрый рывок
+                        interestTimer = 0;
+                        ignoreTimer = 60; // Не отвлекаться на мышь сразу
                     }
                 }
 
@@ -1069,47 +1008,12 @@
                 window.addEventListener('devicemotion', handleMotion);
             }
 
-        const norm = (a) => {
-            if (!isFinite(a)) return 0;
-            a %= Math.PI * 2;
-            if (a > Math.PI) a -= Math.PI * 2;
-            if (a < -Math.PI) a += Math.PI * 2;
-            return a;
-        };
-
+        // --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
         function lerpAngle(a, b, t) {
-            return a + norm(b - a) * t;
-        }
-
-        function sanityCheck() {
-            if (!isFinite(points[0].x) || !isFinite(points[0].y) || !isFinite(angles[0])) {
-                console.warn("Lizard engine detected NaN/Infinity! Self-healing...");
-                isHanging = false;
-                currentSpeed = 0;
-                targetSpeed = 0;
-                hangVel = 0;
-                points[0].x = window.innerWidth / 2;
-                points[0].y = window.innerHeight / 2;
-                angles[0] = -Math.PI / 2;
-                for (let i = 1; i < numSegments; i++) {
-                    points[i].x = points[0].x;
-                    points[i].y = points[0].y + i * 19;
-                    angles[i] = angles[0];
-                }
-            }
-            
-            // "ТОЛКАЧ": Если ящер должен двигаться, но застрял - толкаем!
-            if (currentSpeed < 0.01 && targetSpeed > 0.5 && !isHanging && !isLicking && !isEnjoying) {
-                stallTimer++;
-                if (stallTimer > 180) { // 3 сек застоя
-                    console.log("Lizard stall detected. Nudging...");
-                    points[0].x += (Math.random() - 0.5) * 50;
-                    points[0].y += (Math.random() - 0.5) * 50;
-                    stallTimer = 0;
-                }
-            } else {
-                stallTimer = 0;
-            }
+            let d = b - a;
+            while (d < -Math.PI) d += Math.PI * 2;
+            while (d > Math.PI) d -= Math.PI * 2;
+            return a + d * t;
         }
 
         // --- ОТРИСОВКА ---
@@ -1127,10 +1031,16 @@
                 let endpoints = [];
                 let anglesArr = [];
 
+                // 1. Вычисляем координаты палочек (Сильно растопыриваем их)
                 for(let j = 0; j < 3; j++) {
+                    // ИСПРАВЛЕНИЕ: Симметричный расчет угла (PI/2 вместо PI/2.3)
                     let gillAngle = angle + (Math.PI/2.0 + 0.35*j) * side;
+                    // Складывает жабры, когда кайфует
                     if (isEnjoying) gillAngle += 0.25 * side;
+                    
+                    // ИСПРАВЛЕНИЕ: Жабры длиннее и сильнее торчат
                     let length = 36 + j*12; 
+                    // Микро-анимация: кончики дрожат при дыхании
                     length += Math.sin(time * 3 + j) * 2;
 
                     endpoints.push({
@@ -1140,6 +1050,7 @@
                     anglesArr.push(gillAngle);
                 }
 
+                // 2. Рисуем перепонки (пленка между жабрами)
                 ctx.beginPath();
                 ctx.moveTo(ax, ay);
                 ctx.lineTo(endpoints[0].x, endpoints[0].y);
@@ -1153,16 +1064,18 @@
                 }
 
                 ctx.lineTo(ax, ay);
-                ctx.fillStyle = colorGills.replace(')', ', 0.35)').replace('hsl', 'hsla'); 
+                // Используем полупрозрачный акцентный цвет для кожицы
+                ctx.fillStyle = colorAccent.replace(')', ', 0.35)').replace('hsl', 'hsla'); 
                 ctx.fill();
 
+                // 3. Рисуем жесткие хрящики
                 for(let j = 0; j < 3; j++) {
                     ctx.beginPath();
                     ctx.moveTo(ax, ay);
                     ctx.lineTo(endpoints[j].x, endpoints[j].y);
                     
                     let grd = ctx.createLinearGradient(ax, ay, endpoints[j].x, endpoints[j].y);
-                    grd.addColorStop(0, colorGills);
+                    grd.addColorStop(0, colorAccent);
                     grd.addColorStop(1, `hsl(${accentH}, 100%, 75%)`); 
 
                     ctx.strokeStyle = grd; 
@@ -1191,15 +1104,11 @@
             const dy = py - sy;
             const D = Math.hypot(dx, dy);
 
-            let targetKneeX, targetKneeY;
+            let kneeX, kneeY;
             
-            // ГВАРД ПРОТИВ ДЕЛЕНИЯ НА НОЛЬ (D < 0.1) ИЛИ NaN
-            if (D < 5 || isNaN(D)) {
-                targetKneeX = sx + Math.cos(bodyAngle + (Math.PI/2)*leg.side) * 20;
-                targetKneeY = sy + Math.sin(bodyAngle + (Math.PI/2)*leg.side) * 20;
-            } else if (D >= L1 + L2) {
-                targetKneeX = sx + dx * (L1 / D);
-                targetKneeY = sy + dy * (L1 / D);
+            if (D >= L1 + L2) {
+                kneeX = sx + dx * (L1 / D);
+                kneeY = sy + dy * (L1 / D);
             } else {
                 let a = (L1*L1 - L2*L2 + D*D) / (2 * D);
                 let h = Math.sqrt(Math.max(0, L1*L1 - a*a));
@@ -1207,41 +1116,38 @@
                 let p3y = sy + dy * (a / D);
                 let nx = -dy / D;
                 let ny = dx / D;
-                let bendSign = leg.side; 
+                let bendSign = leg.side; // Инвертировали для передних лап: теперь локти смотрят наружу, а не внутрь
 
-                targetKneeX = p3x + nx * h * bendSign;
-                targetKneeY = p3y + ny * h * bendSign;
+                kneeX = p3x + nx * h * bendSign;
+                kneeY = p3y + ny * h * bendSign;
             }
 
-            // Smoothing: Lerp knee position to avoid high-frequency shaking
-            if (!leg.kneeX) { leg.kneeX = targetKneeX; leg.kneeY = targetKneeY; }
-            leg.kneeX += (targetKneeX - leg.kneeX) * 0.45;
-            leg.kneeY += (targetKneeY - leg.kneeY) * 0.45;
-
             let grd = ctx.createLinearGradient(sx, sy, px, py);
-            grd.addColorStop(0, `hsl(${h}, ${s}%, ${l * 0.5}%)`);
-            grd.addColorStop(0.5, colorBody);
-            grd.addColorStop(1, colorLegs);
+            grd.addColorStop(0, `hsl(${h}, ${s}%, ${l * 0.5}%)`);   // Очень темный основной
+            grd.addColorStop(0.5, colorBody);                       // Основной цвет на колене
+            grd.addColorStop(1, colorLegs);                        // Цвет лап у стопы
 
-            // Draw segments
             ctx.beginPath();
             ctx.moveTo(sx, sy);
-            ctx.lineTo(leg.kneeX, leg.kneeY);
+            ctx.lineTo(kneeX, kneeY);
             ctx.lineTo(px, py);
             ctx.strokeStyle = grd;
-            ctx.lineWidth = 19; 
+            ctx.lineWidth = 20; 
             ctx.lineJoin = 'round';
             ctx.lineCap = 'round';
             ctx.stroke();
+            
+            // Добавляем округлые суставы ("шарниры") для идеальной гладкости на мобильных устройствах
+            ctx.fillStyle = grd;
+            [ [sx, sy], [kneeX, kneeY], [px, py] ].forEach(pos => {
+                ctx.beginPath();
+                ctx.arc(pos[0], pos[1], 10, 0, Math.PI * 2); // Радиус 10 при lineWidth 20
+                ctx.fill();
+            });
 
-            // Draw Knee Cap (Rounded joint look)
-            ctx.beginPath();
-            ctx.arc(leg.kneeX, leg.kneeY, 9.5, 0, Math.PI * 2);
-            ctx.fillStyle = colorBody;
-            ctx.fill();
-
-            leg.footAngle = Math.atan2(py - leg.kneeY, px - leg.kneeX);
+            leg.footAngle = Math.atan2(py - kneeY, px - kneeX);
         }
+
 
         // КОШАЧЬИ ПОДУШЕЧКИ ЛАП С УСИЛЕННОЙ АНИМАЦИЕЙ ПРИСОСКИ
         function drawFootPads(leg) {
@@ -1576,20 +1482,6 @@
             }
         }
 
-        // РИСУЕМ ЛАПЫ (ФУНКЦИЯ ВЫЗЫВАЕТСЯ ИЗ ГЛАВНОГО ЦИКЛА)
-        function drawAllLegs() {
-            legs.forEach((leg, idx) => {
-                if (isHanging && idx === hangLegIdx) {
-                    // Лапа, на которой висит (зафиксирована в пивоте)
-                    leg.x = hangPivot.x;
-                    leg.y = hangPivot.y;
-                    leg.isStepping = false;
-                }
-                drawLimbBase(leg);
-                drawFootPads(leg);
-            });
-        }
-
         function drawThoughtBubbleConnectors() {
             if (!thoughtBubble.active) return;
             
@@ -1662,8 +1554,7 @@
 
         // --- ГЛАВНЫЙ ЦИКЛ ОБНОВЛЕНИЯ ---
         function update() {
-            try {
-                time += 0.05;
+            time += 0.05;
             
             // --- УМНАЯ СИСТЕМА МОРГАНИЯ И ЭМОЦИЙ ---
             if (time > nextBlinkTime) {
@@ -1905,101 +1796,68 @@
                 }
             }
 
-            if (isHanging) {
-                // ФИЗИКА МАЯТНИКА
-                let gravForce = -hangGravity * Math.sin(hangTheta);
-                hangVel += gravForce;
-                hangVel *= hangDamping;
-                hangTheta += hangVel;
-                
-                // Обновляем положение головы относительно лапы-пивота
-                // Висим на лапе, значит голова (точка 0) болтается ниже
-                points[0].x = hangPivot.x + Math.sin(hangTheta) * hangLen;
-                points[0].y = hangPivot.y + Math.cos(hangTheta) * hangLen;
-                
-                // Направление головы - по касательной к маятнику или просто вниз
-                let targetA = hangTheta + Math.PI/2 + (hangVel * 5);
-                currentHeadAngle = lerpAngle(currentHeadAngle, targetA, 0.1);
-                angles[0] = currentHeadAngle;
-                
-                hangDuration--;
-                if (hangDuration <= 0 || (Math.abs(hangVel) < 0.005 && Math.abs(hangTheta) < 0.05 && hangDuration < 100)) {
-                    isHanging = false;
-                    // Оставляем лапу там где она была
-                }
-                
-                // Болтающиеся лапы
-                legs.forEach((leg, idx) => {
-                    if (idx !== hangLegIdx) {
-                        let p1 = points[leg.seg];
-                        let hangAngle = currentHeadAngle + (leg.side * 0.5);
-                        let l = leg.isFront ? 75 : 85;
-                        // Лапы тянутся вниз под силой инерции
-                        let inertiaX = -hangVel * 150;
-                        leg.x += (p1.x + Math.cos(hangAngle)*40 + inertiaX - leg.x) * 0.15;
-                        leg.y += (p1.y + Math.sin(hangAngle)*l + 20 - leg.y) * 0.1;
-                    }
-                });
+            let dx = activeTarget.x - points[0].x;
+            let dy = activeTarget.y - points[0].y;
+            let dist = Math.sqrt(dx*dx + dy*dy);
 
-            } else {
-                // ОБЫЧНОЕ ДВИЖЕНИЕ (СУЩЕСТВУЮЩИЙ КОД)
-                let dx = activeTarget.x - points[0].x;
-                let dy = activeTarget.y - points[0].y;
-                let dist = Math.sqrt(dx*dx + dy*dy);
+            if (dist < 45 && !isLicking) { targetSpeed *= (dist / 45); }
 
-                if (dist < 45 && !isLicking) { targetSpeed *= (dist / 45); }
+            // ИСПРАВЛЕНИЕ: ЖЕСТКАЯ БЛОКИРОВКА ТЕЛА (Сначала лапы, потом тело)
+            let steppingCount = 0;
+            let bodyHalted = false;
 
-                // ИСПРАВЛЕНИЕ: ЖЕСТКАЯ БЛОКИРОВКА ТЕЛА (Сначала лапы, потом тело)
-                let steppingCount = 0;
-                let bodyHalted = false;
+            legs.forEach(leg => {
+                if (leg.isStepping) steppingCount++;
 
-                legs.forEach(leg => {
-                    if (leg.isStepping) steppingCount++;
+                let p1 = points[leg.seg];
+                let bodyAngle = angles[leg.seg];
+                let dragX = leg.x - p1.x;
+                let dragY = leg.y - p1.y;
+                let forwardProjection = dragX * Math.cos(bodyAngle) + dragY * Math.sin(bodyAngle);
+                let lateralProjection = dragX * Math.cos(bodyAngle + (Math.PI / 2) * leg.side) + dragY * Math.sin(bodyAngle + (Math.PI / 2) * leg.side);
 
-                    let p1 = points[leg.seg];
-                    let bodyAngle = angles[leg.seg];
-                    let dragX = leg.x - p1.x;
-                    let dragY = leg.y - p1.y;
-                    let forwardProjection = dragX * Math.cos(bodyAngle) + dragY * Math.sin(bodyAngle);
-                    let lateralProjection = dragX * Math.cos(bodyAngle + (Math.PI / 2) * leg.side) + dragY * Math.sin(bodyAngle + (Math.PI / 2) * leg.side);
+                // Если передняя лапа отстает (меньше 6 пикселей спереди от плеча),
+                // тело встает как вкопанное и ждет перестановки.
+                if (leg.isFront && forwardProjection < 6) bodyHalted = true;
+                // Для задних лап лимит отставания больше
+                if (!leg.isFront && forwardProjection < -25) bodyHalted = true;
+                // ИСПРАВЛЕНИЕ: Если пузико наползает на лапу (лапа слишком близко к центру) - тормозим!
+                if (lateralProjection < 26) bodyHalted = true;
+            });
 
-                    if (leg.isFront && forwardProjection < 6) bodyHalted = true;
-                    if (!leg.isFront && forwardProjection < -25) bodyHalted = true;
-                    if (lateralProjection < 26) bodyHalted = true;
-                });
-
-                let actualTargetSpeed = targetSpeed;
-                if (steppingCount > 0) { 
-                    actualTargetSpeed *= 0.1; 
-                } else if (bodyHalted) { 
-                    // ИСПРАВЛЕНИЕ ДЭДЛОКА: Если тело заблокировано, даем маааленькую скорость "толкания",
-                    // чтобы лапы в итоге вышли за порог шага. Иначе ящер стоит вечно.
-                    actualTargetSpeed = Math.min(targetSpeed, 0.4); 
-                } else if (currentSpeed < targetSpeed && targetSpeed > 0.5) { 
-                    actualTargetSpeed *= 2.2; 
-                }
-
-                currentSpeed += (actualTargetSpeed - currentSpeed) * 0.25; 
-                
-                if (dist > 25 && !isLicking) {
-                    let tAngle = Math.atan2(dy, dx);
-                    let diff = norm(tAngle - currentHeadAngle);
-                    let maxTurn = isEnjoying ? 0.015 : 0.035; 
-                    let turnStep = Math.sign(diff) * Math.min(Math.abs(diff) * 0.05, maxTurn);
-                    currentHeadAngle += turnStep;
-                }
-
-                if (dist > 5 && currentSpeed > 0.05) {
-                    let wiggle = isEnjoying ? 0.8 : (currentSpeed * 0.25);
-                    let sway = currentSpeed > 0.3 ? bodySway * 2.0 : 0;
-                    points[0].x += Math.cos(currentHeadAngle) * currentSpeed + Math.cos(currentHeadAngle+Math.PI/2)*(Math.sin(time*2.0)*wiggle + sway);
-                    points[0].y += Math.sin(currentHeadAngle) * currentSpeed + Math.sin(currentHeadAngle+Math.PI/2)*(Math.sin(time*2.0)*wiggle + sway);
-                } else {
-                    points[0].x += Math.cos(time*0.6) * 0.1;
-                    points[0].y += Math.sin(time*0.6) * 0.1;
-                }
-                angles[0] = currentHeadAngle;
+            let actualTargetSpeed = targetSpeed;
+            if (steppingCount > 0) { 
+                actualTargetSpeed *= 0.1; // Почти стоим, пока лапа в воздухе
+            } else if (bodyHalted) { 
+                actualTargetSpeed = 0; // Полная остановка - ждем лапу!
+            } else if (currentSpeed < targetSpeed && targetSpeed > 0.5) { 
+                actualTargetSpeed *= 2.2; // Мощный рывок тела вперед после постановки лап
             }
+
+            currentSpeed += (actualTargetSpeed - currentSpeed) * 0.25; 
+            
+            if (dist > 25 && !isLicking) {
+                let tAngle = Math.atan2(dy, dx);
+                let diff = tAngle - currentHeadAngle;
+                while (diff < -Math.PI) diff += Math.PI * 2;
+                while (diff > Math.PI) diff -= Math.PI * 2;
+
+                let maxTurn = isEnjoying ? 0.015 : 0.035; 
+                let turnStep = Math.sign(diff) * Math.min(Math.abs(diff) * 0.05, maxTurn);
+                currentHeadAngle += turnStep;
+            }
+
+            if (dist > 5 && currentSpeed > 0.05) {
+                let wiggle = isEnjoying ? 0.8 : (currentSpeed * 0.25);
+                // bodySway — плавное боковое покачивание при смене опорной ноги
+                let sway = currentSpeed > 0.3 ? bodySway * 2.0 : 0;
+                points[0].x += Math.cos(currentHeadAngle) * currentSpeed + Math.cos(currentHeadAngle+Math.PI/2)*(Math.sin(time*2.0)*wiggle + sway);
+                points[0].y += Math.sin(currentHeadAngle) * currentSpeed + Math.sin(currentHeadAngle+Math.PI/2)*(Math.sin(time*2.0)*wiggle + sway);
+            } else {
+                points[0].x += Math.cos(time*0.6) * 0.1;
+                points[0].y += Math.sin(time*0.6) * 0.1;
+            }
+            angles[0] = currentHeadAngle;
 
             for (let i = 1; i < numSegments; i++) {
                 let pPrev = points[i-1];
@@ -2009,7 +1867,9 @@
                 let dAy = pPrev.y - pCurr.y;
                 let targetAngle = Math.atan2(dAy, dAx);
                 
-                let diff = norm(targetAngle - angles[i-1]);
+                let diff = targetAngle - angles[i-1];
+                while (diff < -Math.PI) diff += Math.PI * 2;
+                while (diff > Math.PI) diff -= Math.PI * 2;
                 
                 // ДЕЛАЕМ ТЕЛО ТВЕРДЫМ: 
                 // Жесткость позвоночника повышена. От 0.18 (шея) до 0.06 (хвост).
@@ -2215,7 +2075,7 @@
             ctx.shadowOffsetY = 8;
 
             drawGills();
-            drawAllLegs();
+            legs.forEach(leg => drawLimbBase(leg));
             
             // --- ПРЕДРАСЧЕТ РАДИУСОВ (АНАТОМИЯ) ---
             // Чтобы везде применять правильную форму тела
@@ -2402,20 +2262,8 @@
             // РЕНДЕР ПАСС 2: Все жуки рисуются поверх ящерицы
             foods.forEach((f, idx) => drawBug(f, idx));
 
-            sanityCheck();
             requestAnimationFrame(update);
-        } catch(e) {
-            console.error("Lizard update engine exception:", e);
-            setTimeout(() => {
-                try {
-                    sanityCheck(); 
-                    requestAnimationFrame(update);
-                } catch(retryE) {
-                    console.error("Recovery failed:", retryE);
-                }
-            }, 1000);
         }
-    }
 
         // PWA Service Worker Registration
         if ('serviceWorker' in navigator) {
